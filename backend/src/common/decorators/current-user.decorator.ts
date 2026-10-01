@@ -4,6 +4,8 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 export interface AuthUser {
   id: string;
   email: string;
+  /** Household whose data this request may touch (checked on every request). */
+  householdId: string;
 }
 
 /** Injects the authenticated user (or one of its fields) into a handler. */

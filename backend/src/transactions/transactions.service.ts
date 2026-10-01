@@ -21,14 +21,26 @@ import {
   UpdateTransactionDto,
 } from './dto/transaction.dto.js';
 
-type TransactionWithCategory = Transaction & { category: Category };
+const TX_INCLUDE = {
+  category: true,
+  createdBy: { select: { id: true, name: true } },
+} as const;
+
+type TransactionWithCategory = Transaction & {
+  category: Category;
+  createdBy: { id: string; name: string } | null;
+};
 
 @Injectable()
 export class TransactionsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateTransactionDto): Promise<TransactionResponseDto> {
-    await this.assertCategoryMatches(userId, dto.categoryId, dto.type);
+  async create(
+    householdId: string,
+    dto: CreateTransactionDto,
+    createdById?: string,
+  ): Promise<TransactionResponseDto> {
+    await this.assertCategoryMatches(householdId, dto.categoryId, dto.type);
 
     const transaction = await this.prisma.transaction.create({
       data: {
@@ -38,18 +50,19 @@ export class TransactionsService {
         date: parseDateOnly(dto.date),
         notes: dto.notes,
         categoryId: dto.categoryId,
-        userId,
+        householdId,
+        createdById,
       },
-      include: { category: true },
+      include: TX_INCLUDE,
     });
     return this.toResponse(transaction);
   }
 
   async findAll(
-    userId: string,
+    householdId: string,
     query: ListTransactionsQueryDto,
   ): Promise<PaginatedTransactionsDto> {
-    const where = this.buildWhere(userId, query);
+    const where = this.buildWhere(householdId, query);
     const orderBy: Prisma.TransactionOrderByWithRelationInput[] = [
       { [query.sortBy]: query.order },
       // Stable ordering when the main key ties (e.g. many rows on one date).
@@ -59,7 +72,7 @@ export class TransactionsService {
     const [items, total, totalsByType] = await this.prisma.$transaction([
       this.prisma.transaction.findMany({
         where,
-        include: { category: true },
+        include: TX_INCLUDE,
         orderBy,
         ...toSkipTake(query),
       }),
@@ -87,27 +100,27 @@ export class TransactionsService {
     };
   }
 
-  async findOne(userId: string, id: string): Promise<TransactionResponseDto> {
-    return this.toResponse(await this.getOwned(userId, id));
+  async findOne(householdId: string, id: string): Promise<TransactionResponseDto> {
+    return this.toResponse(await this.getOwned(householdId, id));
   }
 
   async update(
-    userId: string,
+    householdId: string,
     id: string,
     dto: UpdateTransactionDto,
   ): Promise<TransactionResponseDto> {
-    const current = await this.getOwned(userId, id);
+    const current = await this.getOwned(householdId, id);
 
     // Re-validate the category/type pair whenever either side changes.
     const categoryId = dto.categoryId ?? current.categoryId;
     const type = dto.type ?? current.type;
     if (categoryId !== current.categoryId || type !== current.type) {
-      await this.assertCategoryMatches(userId, categoryId, type);
+      await this.assertCategoryMatches(householdId, categoryId, type);
     }
 
     const updated = await this.prisma.transaction.update({
       // Scoped by owner in the write itself too (defense in depth).
-      where: { id, userId },
+      where: { id, householdId },
       data: {
         description: dto.description,
         amount: dto.amount !== undefined ? toDecimal(dto.amount) : undefined,
@@ -116,25 +129,25 @@ export class TransactionsService {
         notes: dto.notes,
         categoryId: dto.categoryId,
       },
-      include: { category: true },
+      include: TX_INCLUDE,
     });
     return this.toResponse(updated);
   }
 
-  async remove(userId: string, id: string): Promise<void> {
-    await this.getOwned(userId, id);
-    await this.prisma.transaction.delete({ where: { id, userId } });
+  async remove(householdId: string, id: string): Promise<void> {
+    await this.getOwned(householdId, id);
+    await this.prisma.transaction.delete({ where: { id, householdId } });
   }
 
   private buildWhere(
-    userId: string,
+    householdId: string,
     query: ListTransactionsQueryDto,
   ): Prisma.TransactionWhereInput {
     if (query.startDate && query.endDate && query.startDate > query.endDate) {
       throw new BadRequestException('startDate must be before or equal to endDate');
     }
     return {
-      userId,
+      householdId,
       type: query.type,
       categoryId: query.categoryId,
       date:
@@ -156,12 +169,12 @@ export class TransactionsService {
    * transaction — an expense cannot be filed under "Salary".
    */
   private async assertCategoryMatches(
-    userId: string,
+    householdId: string,
     categoryId: string,
     type: TransactionType,
   ): Promise<void> {
     const category = await this.prisma.category.findFirst({
-      where: { id: categoryId, userId },
+      where: { id: categoryId, householdId },
       select: { type: true },
     });
     if (!category) throw new NotFoundException('Category not found');
@@ -172,10 +185,10 @@ export class TransactionsService {
     }
   }
 
-  private async getOwned(userId: string, id: string): Promise<TransactionWithCategory> {
+  private async getOwned(householdId: string, id: string): Promise<TransactionWithCategory> {
     const transaction = await this.prisma.transaction.findFirst({
-      where: { id, userId },
-      include: { category: true },
+      where: { id, householdId },
+      include: TX_INCLUDE,
     });
     if (!transaction) throw new NotFoundException('Transaction not found');
     return transaction;
@@ -196,6 +209,7 @@ export class TransactionsService {
         color: t.category.color,
         icon: t.category.icon,
       },
+      createdBy: t.createdBy,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,
     };

@@ -90,6 +90,14 @@ export class ListTransactionsQueryDto extends PaginationQueryDto {
   order: 'asc' | 'desc' = 'desc';
 }
 
+export class UserRefDto {
+  @ApiProperty({ example: '6f1c2b8e-3a4d-4f6b-9c1e-2d3f4a5b6c7d' })
+  id: string;
+
+  @ApiProperty({ example: 'Maria' })
+  name: string;
+}
+
 export class TransactionResponseDto {
   @ApiProperty({ example: '9b2e4c6a-1d3f-4e5a-8b7c-6d5e4f3a2b1c' })
   id: string;
@@ -111,6 +119,13 @@ export class TransactionResponseDto {
 
   @ApiProperty({ type: CategorySummaryDto })
   category: CategorySummaryDto;
+
+  @ApiProperty({
+    type: UserRefDto,
+    nullable: true,
+    description: 'Household member who registered it (null if they left and were deleted)',
+  })
+  createdBy: UserRefDto | null;
 
   @ApiProperty()
   createdAt: Date;

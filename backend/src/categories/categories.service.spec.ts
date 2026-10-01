@@ -13,7 +13,7 @@ function dbCategory(overrides: Record<string, unknown> = {}) {
     type: 'EXPENSE',
     color: '#8b5cf6',
     icon: 'gamepad-2',
-    userId: USER,
+    householdId: USER,
     createdAt: new Date(),
     updatedAt: new Date(),
     _count: { transactions: 0, budgets: 0 },
@@ -39,7 +39,7 @@ describe('CategoriesService', () => {
     expect(prisma.category.create.mock.calls[0][0].data).toEqual({
       name: 'Lazer',
       type: 'EXPENSE',
-      userId: USER,
+      householdId: USER,
     });
     expect(result.transactionCount).toBe(0);
   });
@@ -63,7 +63,7 @@ describe('CategoriesService', () => {
     const result = await service.findAll(USER, { page: 1, limit: 20, type: 'EXPENSE' });
 
     expect(prisma.category.findMany.mock.calls[0][0].where).toEqual({
-      userId: USER,
+      householdId: USER,
       type: 'EXPENSE',
     });
     expect(result.meta.total).toBe(1);
@@ -100,6 +100,6 @@ describe('CategoriesService', () => {
 
     await service.remove(USER, 'cat-1');
 
-    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'cat-1', userId: USER } });
+    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'cat-1', householdId: USER } });
   });
 });

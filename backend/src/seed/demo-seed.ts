@@ -8,11 +8,11 @@
  * with dates relative to today.
  */
 import * as bcrypt from 'bcrypt';
+import { randomBytes } from 'node:crypto';
 import { DEFAULT_CATEGORIES } from '../categories/default-categories.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import { DEMO_EMAIL, DEMO_PARTNER_EMAIL, DEMO_PASSWORD } from './demo-accounts.js';
 
-const DEMO_EMAIL = 'demo@fintrack.dev';
-const DEMO_PASSWORD = 'Demo@1234';
 const MONTHS_OF_HISTORY = 6; // plus the current month
 
 /** Deterministic PRNG so every seed run produces the same data. */
@@ -78,18 +78,41 @@ function dateOn(year: number, monthIndex: number, day: number) {
 
 export async function seedDemo(prisma: PrismaClient): Promise<string> {
   random = mulberry32(42);
-  await prisma.user.deleteMany({ where: { email: DEMO_EMAIL } });
+  // Reset: remove the demo household (cascades to its data) and both members.
+  const previous = await prisma.user.findMany({
+    where: { email: { in: [DEMO_EMAIL, DEMO_PARTNER_EMAIL] } },
+    select: { membership: { select: { householdId: true } } },
+  });
+  const householdIds = previous.flatMap((u) => (u.membership ? [u.membership.householdId] : []));
+  await prisma.household.deleteMany({ where: { id: { in: householdIds } } });
+  await prisma.user.deleteMany({ where: { email: { in: [DEMO_EMAIL, DEMO_PARTNER_EMAIL] } } });
 
+  // A shared household of two, so the "couple" features have something to show.
+  const household = await prisma.household.create({
+    data: {
+      name: 'Casa Demo',
+      categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+    },
+    include: { categories: true },
+  });
   const user = await prisma.user.create({
     data: {
       name: 'Conta Demo',
       email: DEMO_EMAIL,
       passwordHash: await bcrypt.hash(DEMO_PASSWORD, 12),
-      categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+      membership: { create: { householdId: household.id, role: 'OWNER' } },
     },
-    include: { categories: true },
   });
-  const categoryByName = new Map(user.categories.map((c) => [c.name, c]));
+  // The partner cannot log in: its password is random and never stored anywhere.
+  const partner = await prisma.user.create({
+    data: {
+      name: 'Bia',
+      email: DEMO_PARTNER_EMAIL,
+      passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 12),
+      membership: { create: { householdId: household.id, role: 'MEMBER' } },
+    },
+  });
+  const categoryByName = new Map(household.categories.map((c) => [c.name, c]));
 
   const today = new Date();
   const transactions: Prisma.TransactionCreateManyInput[] = [];
@@ -107,7 +130,9 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     const add = (categoryName: string, description: string, day: number, amount: Prisma.Decimal) => {
       const category = categoryByName.get(categoryName)!;
       transactions.push({
-        userId: user.id,
+        householdId: household.id,
+        // Roughly a third of the entries are registered by the partner.
+        createdById: random() < 0.35 ? partner.id : user.id,
         categoryId: category.id,
         type: category.type,
         description,
@@ -138,7 +163,7 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     const ref = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - offset, 1));
     for (const [name, limit] of Object.entries(BUDGETS)) {
       budgets.push({
-        userId: user.id,
+        householdId: household.id,
         categoryId: categoryByName.get(name)!.id,
         year: ref.getUTCFullYear(),
         month: ref.getUTCMonth() + 1,
@@ -148,5 +173,5 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
   }
   await prisma.budget.createMany({ data: budgets });
 
-  return `Seeded ${DEMO_EMAIL} with ${user.categories.length} categories, ${transactions.length} transactions and ${budgets.length} budgets.`;
+  return `Seeded ${DEMO_EMAIL} (+ partner) with ${household.categories.length} categories, ${transactions.length} transactions and ${budgets.length} budgets.`;
 }

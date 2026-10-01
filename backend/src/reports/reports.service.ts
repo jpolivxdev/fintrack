@@ -39,18 +39,18 @@ export class ReportsService {
   ) {}
 
   /** Headline numbers for a month, compared with the month before. */
-  async summary(userId: string, query: MonthQueryDto): Promise<SummaryReportDto> {
+  async summary(householdId: string, query: MonthQueryDto): Promise<SummaryReportDto> {
     const { year, month } = this.resolveMonth(query);
     const current = monthRange(year, month);
     const prev = addMonths(year, month, -1);
     const previous = monthRange(prev.year, prev.month);
 
     const [thisMonth, lastMonth, allTime, transactionCount] = await Promise.all([
-      this.totalsByType({ userId, date: { gte: current.start, lt: current.end } }),
-      this.totalsByType({ userId, date: { gte: previous.start, lt: previous.end } }),
-      this.totalsByType({ userId, date: { lt: current.end } }),
+      this.totalsByType({ householdId, date: { gte: current.start, lt: current.end } }),
+      this.totalsByType({ householdId, date: { gte: previous.start, lt: previous.end } }),
+      this.totalsByType({ householdId, date: { lt: current.end } }),
       this.prisma.transaction.count({
-        where: { userId, date: { gte: current.start, lt: current.end } },
+        where: { householdId, date: { gte: current.start, lt: current.end } },
       }),
     ]);
 
@@ -74,7 +74,7 @@ export class ReportsService {
   }
 
   /** Income, expense, net and running balance for the last N months. */
-  async monthly(userId: string, query: MonthlyReportQueryDto): Promise<MonthlyReportDto> {
+  async monthly(householdId: string, query: MonthlyReportQueryDto): Promise<MonthlyReportDto> {
     const last = this.resolveMonth(query);
     const first = addMonths(last.year, last.month, -(query.months - 1));
     const start = monthRange(first.year, first.month).start;
@@ -88,12 +88,12 @@ export class ReportsService {
                "type"::text AS type,
                SUM("amount") AS total
         FROM "transactions"
-        WHERE "userId" = ${userId}::uuid
+        WHERE "householdId" = ${householdId}::uuid
           AND "date" >= ${formatDateOnly(start)}::date
           AND "date" < ${formatDateOnly(end)}::date
         GROUP BY 1, 2
         ORDER BY 1`,
-      this.totalsByType({ userId, date: { lt: start } }),
+      this.totalsByType({ householdId, date: { lt: start } }),
     ]);
 
     return {
@@ -107,7 +107,7 @@ export class ReportsService {
   }
 
   /** How a period's income or expenses split across categories. */
-  async byCategory(userId: string, query: CategoryReportQueryDto): Promise<CategoryReportDto> {
+  async byCategory(householdId: string, query: CategoryReportQueryDto): Promise<CategoryReportDto> {
     const now = currentYearMonth();
     const defaultRange = monthRange(now.year, now.month);
     const startDate = query.startDate ?? formatDateOnly(defaultRange.start);
@@ -120,7 +120,7 @@ export class ReportsService {
     const groups = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
       where: {
-        userId,
+        householdId,
         type: query.type,
         date: { gte: parseDateOnly(startDate), lte: parseDateOnly(endDate) },
       },
@@ -129,7 +129,7 @@ export class ReportsService {
     });
 
     const categories = await this.prisma.category.findMany({
-      where: { userId, id: { in: groups.map((g) => g.categoryId) } },
+      where: { householdId, id: { in: groups.map((g) => g.categoryId) } },
       select: { id: true, name: true, color: true, icon: true },
     });
     const categoryById = new Map(categories.map((c) => [c.id, c]));
@@ -160,13 +160,13 @@ export class ReportsService {
   }
 
   /** Every budget of the month against what was actually spent. */
-  async budgetVsActual(userId: string, query: MonthQueryDto): Promise<BudgetVsActualReportDto> {
+  async budgetVsActual(householdId: string, query: MonthQueryDto): Promise<BudgetVsActualReportDto> {
     const { year, month } = this.resolveMonth(query);
     const { start, end } = monthRange(year, month);
 
     const [budgets, monthTotals] = await Promise.all([
-      this.budgets.findAllForMonth(userId, year, month),
-      this.totalsByType({ userId, type: 'EXPENSE', date: { gte: start, lt: end } }),
+      this.budgets.findAllForMonth(householdId, year, month),
+      this.totalsByType({ householdId, type: 'EXPENSE', date: { gte: start, lt: end } }),
     ]);
 
     const limit = budgets.reduce((acc, b) => acc.plus(b.monthlyLimit), new Decimal(0));

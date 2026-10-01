@@ -29,9 +29,9 @@ type BudgetWithCategory = Budget & { category: Category };
 export class BudgetsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateBudgetDto): Promise<BudgetResponseDto> {
+  async create(householdId: string, dto: CreateBudgetDto): Promise<BudgetResponseDto> {
     const category = await this.prisma.category.findFirst({
-      where: { id: dto.categoryId, userId },
+      where: { id: dto.categoryId, householdId },
       select: { type: true },
     });
     if (!category) throw new NotFoundException('Category not found');
@@ -40,7 +40,7 @@ export class BudgetsService {
     }
 
     const duplicate = await this.prisma.budget.findFirst({
-      where: { userId, categoryId: dto.categoryId, year: dto.year, month: dto.month },
+      where: { householdId, categoryId: dto.categoryId, year: dto.year, month: dto.month },
       select: { id: true },
     });
     if (duplicate) {
@@ -51,7 +51,7 @@ export class BudgetsService {
 
     const budget = await this.prisma.budget.create({
       data: {
-        userId,
+        householdId,
         categoryId: dto.categoryId,
         year: dto.year,
         month: dto.month,
@@ -59,16 +59,16 @@ export class BudgetsService {
       },
       include: { category: true },
     });
-    const [response] = await this.withProgress(userId, [budget], dto.year, dto.month);
+    const [response] = await this.withProgress(householdId, [budget], dto.year, dto.month);
     return response;
   }
 
   async findAll(
-    userId: string,
+    householdId: string,
     query: ListBudgetsQueryDto,
   ): Promise<Paginated<BudgetResponseDto>> {
     const { year, month } = this.resolveMonth(query.year, query.month);
-    const where = { userId, year, month };
+    const where = { householdId, year, month };
 
     const [budgets, total] = await this.prisma.$transaction([
       this.prisma.budget.findMany({
@@ -79,47 +79,47 @@ export class BudgetsService {
       }),
       this.prisma.budget.count({ where }),
     ]);
-    return paginate(await this.withProgress(userId, budgets, year, month), total, query);
+    return paginate(await this.withProgress(householdId, budgets, year, month), total, query);
   }
 
   /** Every budget of a month with its progress (used by the reports module). */
   async findAllForMonth(
-    userId: string,
+    householdId: string,
     year: number,
     month: number,
   ): Promise<BudgetResponseDto[]> {
     const budgets = await this.prisma.budget.findMany({
-      where: { userId, year, month },
+      where: { householdId, year, month },
       include: { category: true },
       orderBy: { category: { name: 'asc' } },
     });
-    return this.withProgress(userId, budgets, year, month);
+    return this.withProgress(householdId, budgets, year, month);
   }
 
-  async findOne(userId: string, id: string): Promise<BudgetResponseDto> {
-    const budget = await this.getOwned(userId, id);
-    const [response] = await this.withProgress(userId, [budget], budget.year, budget.month);
+  async findOne(householdId: string, id: string): Promise<BudgetResponseDto> {
+    const budget = await this.getOwned(householdId, id);
+    const [response] = await this.withProgress(householdId, [budget], budget.year, budget.month);
     return response;
   }
 
   async update(
-    userId: string,
+    householdId: string,
     id: string,
     dto: UpdateBudgetDto,
   ): Promise<BudgetResponseDto> {
-    await this.getOwned(userId, id);
+    await this.getOwned(householdId, id);
     const budget = await this.prisma.budget.update({
-      where: { id, userId },
+      where: { id, householdId },
       data: { monthlyLimit: toDecimal(dto.monthlyLimit) },
       include: { category: true },
     });
-    const [response] = await this.withProgress(userId, [budget], budget.year, budget.month);
+    const [response] = await this.withProgress(householdId, [budget], budget.year, budget.month);
     return response;
   }
 
-  async remove(userId: string, id: string): Promise<void> {
-    await this.getOwned(userId, id);
-    await this.prisma.budget.delete({ where: { id, userId } });
+  async remove(householdId: string, id: string): Promise<void> {
+    await this.getOwned(householdId, id);
+    await this.prisma.budget.delete({ where: { id, householdId } });
   }
 
   /**
@@ -128,17 +128,17 @@ export class BudgetsService {
    * the same limits every month.
    */
   async copyFromPreviousMonth(
-    userId: string,
+    householdId: string,
     dto: CopyBudgetsDto,
   ): Promise<CopyBudgetsResponseDto> {
     const previous = addMonths(dto.year, dto.month, -1);
     const [source, existing] = await Promise.all([
       this.prisma.budget.findMany({
-        where: { userId, year: previous.year, month: previous.month },
+        where: { householdId, year: previous.year, month: previous.month },
         select: { categoryId: true, monthlyLimit: true },
       }),
       this.prisma.budget.findMany({
-        where: { userId, year: dto.year, month: dto.month },
+        where: { householdId, year: dto.year, month: dto.month },
         select: { categoryId: true },
       }),
     ]);
@@ -149,7 +149,7 @@ export class BudgetsService {
     if (toCreate.length > 0) {
       await this.prisma.budget.createMany({
         data: toCreate.map((b) => ({
-          userId,
+          householdId,
           categoryId: b.categoryId,
           monthlyLimit: b.monthlyLimit,
           year: dto.year,
@@ -166,9 +166,9 @@ export class BudgetsService {
     return { year: year ?? now.year, month: month ?? now.month };
   }
 
-  private async getOwned(userId: string, id: string): Promise<BudgetWithCategory> {
+  private async getOwned(householdId: string, id: string): Promise<BudgetWithCategory> {
     const budget = await this.prisma.budget.findFirst({
-      where: { id, userId },
+      where: { id, householdId },
       include: { category: true },
     });
     if (!budget) throw new NotFoundException('Budget not found');
@@ -177,7 +177,7 @@ export class BudgetsService {
 
   /** Attaches spent/remaining/status using a single aggregate query. */
   private async withProgress(
-    userId: string,
+    householdId: string,
     budgets: BudgetWithCategory[],
     year: number,
     month: number,
@@ -188,7 +188,7 @@ export class BudgetsService {
     const sums = await this.prisma.transaction.groupBy({
       by: ['categoryId'],
       where: {
-        userId,
+        householdId,
         type: 'EXPENSE',
         categoryId: { in: budgets.map((b) => b.categoryId) },
         date: { gte: start, lt: end },

@@ -29,6 +29,11 @@ export interface RefreshTokenPayload {
 }
 
 const INVALID_CREDENTIALS = 'Invalid email or password';
+
+/** "Maria Silva" -> "Casa de Maria" */
+export function personalHouseholdName(userName: string): string {
+  return `Casa de ${userName.trim().split(/s+/)[0]}`;
+}
 const INVALID_REFRESH = 'Invalid or expired refresh token';
 
 @Injectable()
@@ -64,12 +69,23 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
 
+    // Every account starts in its own household, with default categories.
     const user = await this.prisma.user.create({
       data: {
         name: dto.name,
         email: dto.email,
         passwordHash,
-        categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+        membership: {
+          create: {
+            role: 'OWNER',
+            household: {
+              create: {
+                name: personalHouseholdName(dto.name),
+                categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+              },
+            },
+          },
+        },
       },
     });
 

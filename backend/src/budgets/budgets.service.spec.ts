@@ -15,7 +15,7 @@ const food = { id: 'cat-food', name: 'Alimentação', type: 'EXPENSE', color: nu
 function dbBudget(overrides: Record<string, unknown> = {}) {
   return {
     id: 'b-1',
-    userId: USER,
+    householdId: USER,
     categoryId: food.id,
     year: 2026,
     month: 10,
@@ -74,7 +74,7 @@ describe('BudgetsService', () => {
       });
       // Spending is computed only from the user's expenses in that month.
       expect(prisma.transaction.groupBy.mock.calls[0][0].where).toEqual({
-        userId: USER,
+        householdId: USER,
         type: 'EXPENSE',
         categoryId: { in: [food.id] },
         date: {
@@ -108,12 +108,12 @@ describe('BudgetsService', () => {
       expect(result).toEqual({ created: 1, skipped: 1 });
       // January copies from December of the previous year.
       expect(prisma.budget.findMany.mock.calls[0][0].where).toEqual({
-        userId: USER,
+        householdId: USER,
         year: 2025,
         month: 12,
       });
       expect(prisma.budget.createMany.mock.calls[0][0].data).toEqual([
-        { userId: USER, categoryId: 'cat-a', monthlyLimit: new Decimal('100'), year: 2026, month: 1 },
+        { householdId: USER, categoryId: 'cat-a', monthlyLimit: new Decimal('100'), year: 2026, month: 1 },
       ]);
     });
   });

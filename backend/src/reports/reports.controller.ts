@@ -32,8 +32,8 @@ export class ReportsController {
       'Income, expense, net, accumulated balance and savings rate for a month, with % change vs the previous month.',
   })
   @ApiOkResponse({ type: SummaryReportDto })
-  summary(@CurrentUser('id') userId: string, @Query() query: MonthQueryDto) {
-    return this.reports.summary(userId, query);
+  summary(@CurrentUser('householdId') householdId: string, @Query() query: MonthQueryDto) {
+    return this.reports.summary(householdId, query);
   }
 
   @Get('monthly')
@@ -43,8 +43,8 @@ export class ReportsController {
       'Continuous series (empty months are zero) of income, expense, net and running balance.',
   })
   @ApiOkResponse({ type: MonthlyReportDto })
-  monthly(@CurrentUser('id') userId: string, @Query() query: MonthlyReportQueryDto) {
-    return this.reports.monthly(userId, query);
+  monthly(@CurrentUser('householdId') householdId: string, @Query() query: MonthlyReportQueryDto) {
+    return this.reports.monthly(householdId, query);
   }
 
   @Get('by-category')
@@ -53,8 +53,8 @@ export class ReportsController {
     description: 'Breakdown of a period (default: current month) per category, with percentages.',
   })
   @ApiOkResponse({ type: CategoryReportDto })
-  byCategory(@CurrentUser('id') userId: string, @Query() query: CategoryReportQueryDto) {
-    return this.reports.byCategory(userId, query);
+  byCategory(@CurrentUser('householdId') householdId: string, @Query() query: CategoryReportQueryDto) {
+    return this.reports.byCategory(householdId, query);
   }
 
   @Get('budget-vs-actual')
@@ -64,7 +64,7 @@ export class ReportsController {
       'Each budget of the month with spent/remaining/status, overall totals and spending outside any budget.',
   })
   @ApiOkResponse({ type: BudgetVsActualReportDto })
-  budgetVsActual(@CurrentUser('id') userId: string, @Query() query: MonthQueryDto) {
-    return this.reports.budgetVsActual(userId, query);
+  budgetVsActual(@CurrentUser('householdId') householdId: string, @Query() query: MonthQueryDto) {
+    return this.reports.budgetVsActual(householdId, query);
   }
 }

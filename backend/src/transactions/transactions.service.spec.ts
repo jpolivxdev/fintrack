@@ -24,7 +24,7 @@ function dbTransaction(overrides: Record<string, unknown> = {}) {
     date: new Date('2026-10-01T00:00:00Z'),
     notes: null,
     categoryId: category.id,
-    userId: USER,
+    householdId: USER,
     createdAt: new Date('2026-10-01T10:00:00Z'),
     updatedAt: new Date('2026-10-01T10:00:00Z'),
     category,
@@ -64,7 +64,7 @@ describe('TransactionsService', () => {
       expect(data.amount).toBeInstanceOf(Decimal);
       expect(data.amount.toFixed(2)).toBe('249.90');
       expect(data.date.toISOString()).toBe('2026-10-01T00:00:00.000Z');
-      expect(data.userId).toBe(USER);
+      expect(data.householdId).toBe(USER);
 
       expect(result).toMatchObject({ amount: '249.90', date: '2026-10-01' });
       expect(result.category).toEqual(category);
@@ -77,7 +77,7 @@ describe('TransactionsService', () => {
         new NotFoundException('Category not found'),
       );
       expect(prisma.category.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: category.id, userId: USER } }),
+        expect.objectContaining({ where: { id: category.id, householdId: USER } }),
       );
       expect(prisma.transaction.create).not.toHaveBeenCalled();
     });
@@ -118,7 +118,7 @@ describe('TransactionsService', () => {
 
       const args = prisma.transaction.findMany.mock.calls[0][0];
       expect(args.where).toEqual({
-        userId: USER,
+        householdId: USER,
         type: 'EXPENSE',
         categoryId: category.id,
         date: {
@@ -139,7 +139,7 @@ describe('TransactionsService', () => {
       await service.findAll(USER, listQuery());
 
       const { where } = prisma.transaction.findMany.mock.calls[0][0];
-      expect(where.userId).toBe(USER);
+      expect(where.householdId).toBe(USER);
       expect(where.date).toBeUndefined();
     });
 
@@ -178,7 +178,7 @@ describe('TransactionsService', () => {
         NotFoundException,
       );
       expect(prisma.transaction.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: 'tx-x', userId: USER } }),
+        expect.objectContaining({ where: { id: 'tx-x', householdId: USER } }),
       );
     });
   });
@@ -189,7 +189,7 @@ describe('TransactionsService', () => {
 
       await service.remove(USER, 'tx-1');
 
-      expect(prisma.transaction.delete).toHaveBeenCalledWith({ where: { id: 'tx-1', userId: USER } });
+      expect(prisma.transaction.delete).toHaveBeenCalledWith({ where: { id: 'tx-1', householdId: USER } });
     });
 
     it('does not delete when the transaction is not owned', async () => {

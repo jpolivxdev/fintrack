@@ -48,8 +48,8 @@ export class BudgetsController {
   @ApiBadRequestResponse({ description: 'Invalid payload or category is not an EXPENSE category' })
   @ApiNotFoundResponse({ description: 'Category not found' })
   @ApiConflictResponse({ description: 'The category already has a budget for that month' })
-  create(@CurrentUser('id') userId: string, @Body() dto: CreateBudgetDto) {
-    return this.budgets.create(userId, dto);
+  create(@CurrentUser('householdId') householdId: string, @Body() dto: CreateBudgetDto) {
+    return this.budgets.create(householdId, dto);
   }
 
   @Post('copy-previous')
@@ -58,8 +58,8 @@ export class BudgetsController {
     description: 'Categories that already have a budget in the target month are skipped.',
   })
   @ApiCreatedResponse({ type: CopyBudgetsResponseDto })
-  copyPrevious(@CurrentUser('id') userId: string, @Body() dto: CopyBudgetsDto) {
-    return this.budgets.copyFromPreviousMonth(userId, dto);
+  copyPrevious(@CurrentUser('householdId') householdId: string, @Body() dto: CopyBudgetsDto) {
+    return this.budgets.copyFromPreviousMonth(householdId, dto);
   }
 
   @Get()
@@ -68,16 +68,16 @@ export class BudgetsController {
     description: 'Each budget includes spent, remaining, percentUsed and status. Defaults to the current month.',
   })
   @ApiOkResponse({ type: PaginatedBudgetsDto })
-  findAll(@CurrentUser('id') userId: string, @Query() query: ListBudgetsQueryDto) {
-    return this.budgets.findAll(userId, query);
+  findAll(@CurrentUser('householdId') householdId: string, @Query() query: ListBudgetsQueryDto) {
+    return this.budgets.findAll(householdId, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a budget by id' })
   @ApiOkResponse({ type: BudgetResponseDto })
   @ApiNotFoundResponse({ description: 'Budget not found' })
-  findOne(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.budgets.findOne(userId, id);
+  findOne(@CurrentUser('householdId') householdId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.budgets.findOne(householdId, id);
   }
 
   @Patch(':id')
@@ -85,11 +85,11 @@ export class BudgetsController {
   @ApiOkResponse({ type: BudgetResponseDto })
   @ApiNotFoundResponse({ description: 'Budget not found' })
   update(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('householdId') householdId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateBudgetDto,
   ) {
-    return this.budgets.update(userId, id, dto);
+    return this.budgets.update(householdId, id, dto);
   }
 
   @Delete(':id')
@@ -97,7 +97,7 @@ export class BudgetsController {
   @ApiOperation({ summary: 'Delete a budget' })
   @ApiNoContentResponse({ description: 'Budget deleted' })
   @ApiNotFoundResponse({ description: 'Budget not found' })
-  remove(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.budgets.remove(userId, id);
+  remove(@CurrentUser('householdId') householdId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.budgets.remove(householdId, id);
   }
 }

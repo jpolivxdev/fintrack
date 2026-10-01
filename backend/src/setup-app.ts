@@ -120,6 +120,7 @@ export function setupSwagger(app: INestApplication): void {
       .setVersion('1.0.0')
       .addBearerAuth()
       .addTag('Auth', 'Registration, login and session management')
+      .addTag('Household', 'Shared household (e.g. a couple): members, invites, join and leave')
       .addTag('Categories', 'Income and expense categories')
       .addTag('Transactions', 'Income and expense records')
       .addTag('Budgets', 'Monthly spending limits per category')

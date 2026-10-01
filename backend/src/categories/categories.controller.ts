@@ -43,23 +43,23 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Create a category' })
   @ApiCreatedResponse({ type: CategoryResponseDto })
   @ApiConflictResponse({ description: 'A category with this name and type already exists' })
-  create(@CurrentUser('id') userId: string, @Body() dto: CreateCategoryDto) {
-    return this.categories.create(userId, dto);
+  create(@CurrentUser('householdId') householdId: string, @Body() dto: CreateCategoryDto) {
+    return this.categories.create(householdId, dto);
   }
 
   @Get()
   @ApiOperation({ summary: 'List categories (optionally filtered by type)' })
   @ApiOkResponse({ type: PaginatedCategoriesDto })
-  findAll(@CurrentUser('id') userId: string, @Query() query: ListCategoriesQueryDto) {
-    return this.categories.findAll(userId, query);
+  findAll(@CurrentUser('householdId') householdId: string, @Query() query: ListCategoriesQueryDto) {
+    return this.categories.findAll(householdId, query);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a category by id' })
   @ApiOkResponse({ type: CategoryResponseDto })
   @ApiNotFoundResponse({ description: 'Category not found' })
-  findOne(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.categories.findOne(userId, id);
+  findOne(@CurrentUser('householdId') householdId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.categories.findOne(householdId, id);
   }
 
   @Patch(':id')
@@ -68,11 +68,11 @@ export class CategoriesController {
   @ApiNotFoundResponse({ description: 'Category not found' })
   @ApiConflictResponse({ description: 'Name clash, or type change on a category with transactions' })
   update(
-    @CurrentUser('id') userId: string,
+    @CurrentUser('householdId') householdId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateCategoryDto,
   ) {
-    return this.categories.update(userId, id, dto);
+    return this.categories.update(householdId, id, dto);
   }
 
   @Delete(':id')
@@ -84,7 +84,7 @@ export class CategoriesController {
   @ApiNoContentResponse({ description: 'Category deleted' })
   @ApiNotFoundResponse({ description: 'Category not found' })
   @ApiConflictResponse({ description: 'Category still has transactions' })
-  remove(@CurrentUser('id') userId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.categories.remove(userId, id);
+  remove(@CurrentUser('householdId') householdId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.categories.remove(householdId, id);
   }
 }

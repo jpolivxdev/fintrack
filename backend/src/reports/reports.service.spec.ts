@@ -61,7 +61,7 @@ describe('ReportsService', () => {
       });
       expect(previous.date.gte).toEqual(new Date('2026-09-01T00:00:00Z'));
       expect(allTime.date).toEqual({ lt: new Date('2026-11-01T00:00:00Z') });
-      expect([current, previous, allTime].every((w) => w.userId === USER)).toBe(true);
+      expect([current, previous, allTime].every((w) => w.householdId === USER)).toBe(true);
     });
 
     it('handles a month with no data', async () => {
@@ -94,7 +94,7 @@ describe('ReportsService', () => {
         ['2026-10', '1300.00'],
       ]);
       expect(prisma.transaction.groupBy.mock.calls[0][0].where).toEqual({
-        userId: USER,
+        householdId: USER,
         date: { lt: new Date('2026-09-01T00:00:00Z') },
       });
     });

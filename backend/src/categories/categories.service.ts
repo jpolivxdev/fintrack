@@ -29,20 +29,20 @@ const WITH_COUNT = {
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(userId: string, dto: CreateCategoryDto): Promise<CategoryResponseDto> {
-    await this.assertNameAvailable(userId, dto.name, dto.type);
+  async create(householdId: string, dto: CreateCategoryDto): Promise<CategoryResponseDto> {
+    await this.assertNameAvailable(householdId, dto.name, dto.type);
     const category = await this.prisma.category.create({
-      data: { ...dto, userId },
+      data: { ...dto, householdId },
       include: WITH_COUNT,
     });
     return this.toResponse(category);
   }
 
   async findAll(
-    userId: string,
+    householdId: string,
     query: ListCategoriesQueryDto,
   ): Promise<Paginated<CategoryResponseDto>> {
-    const where: Prisma.CategoryWhereInput = { userId, type: query.type };
+    const where: Prisma.CategoryWhereInput = { householdId, type: query.type };
     const [items, total] = await this.prisma.$transaction([
       this.prisma.category.findMany({
         where,
@@ -55,16 +55,16 @@ export class CategoriesService {
     return paginate(items.map((c) => this.toResponse(c)), total, query);
   }
 
-  async findOne(userId: string, id: string): Promise<CategoryResponseDto> {
-    return this.toResponse(await this.getOwned(userId, id));
+  async findOne(householdId: string, id: string): Promise<CategoryResponseDto> {
+    return this.toResponse(await this.getOwned(householdId, id));
   }
 
   async update(
-    userId: string,
+    householdId: string,
     id: string,
     dto: UpdateCategoryDto,
   ): Promise<CategoryResponseDto> {
-    const current = await this.getOwned(userId, id);
+    const current = await this.getOwned(householdId, id);
 
     const typeChanged = dto.type !== undefined && dto.type !== current.type;
     if (
@@ -79,34 +79,34 @@ export class CategoriesService {
     const name = dto.name ?? current.name;
     const type = dto.type ?? current.type;
     if (name !== current.name || type !== current.type) {
-      await this.assertNameAvailable(userId, name, type, id);
+      await this.assertNameAvailable(householdId, name, type, id);
     }
 
     const updated = await this.prisma.category.update({
-      where: { id, userId },
+      where: { id, householdId },
       data: dto,
       include: WITH_COUNT,
     });
     return this.toResponse(updated);
   }
 
-  async remove(userId: string, id: string): Promise<void> {
-    const category = await this.getOwned(userId, id);
+  async remove(householdId: string, id: string): Promise<void> {
+    const category = await this.getOwned(householdId, id);
     if (category._count.transactions > 0) {
       throw new ConflictException(
         `Category has ${category._count.transactions} transaction(s). Move or delete them before deleting the category.`,
       );
     }
-    await this.prisma.category.delete({ where: { id, userId } });
+    await this.prisma.category.delete({ where: { id, householdId } });
   }
 
   /**
    * Loads a category scoped to the user. Another user's category yields the
    * same 404 as a missing one, so ids cannot be probed.
    */
-  private async getOwned(userId: string, id: string): Promise<CategoryWithCount> {
+  private async getOwned(householdId: string, id: string): Promise<CategoryWithCount> {
     const category = await this.prisma.category.findFirst({
-      where: { id, userId },
+      where: { id, householdId },
       include: WITH_COUNT,
     });
     if (!category) throw new NotFoundException('Category not found');
@@ -114,14 +114,14 @@ export class CategoriesService {
   }
 
   private async assertNameAvailable(
-    userId: string,
+    householdId: string,
     name: string,
     type: Category['type'],
     ignoreId?: string,
   ): Promise<void> {
     const clash = await this.prisma.category.findFirst({
       where: {
-        userId,
+        householdId,
         type,
         name: { equals: name, mode: 'insensitive' },
         id: ignoreId ? { not: ignoreId } : undefined,

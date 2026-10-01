@@ -33,16 +33,17 @@ const random = () => {
 };
 
 async function createUser(email: string, passwordHash: string) {
+  const old = await prisma.user.findUnique({ where: { email }, select: { membership: true } });
+  if (old?.membership) await prisma.household.delete({ where: { id: old.membership.householdId } });
   await prisma.user.deleteMany({ where: { email } });
-  return prisma.user.create({
-    data: {
-      name: email.split('@')[0],
-      email,
-      passwordHash,
-      categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
-    },
+  const household = await prisma.household.create({
+    data: { name: email.split('@')[0], categories: { createMany: { data: [...DEFAULT_CATEGORIES] } } },
     include: { categories: true },
   });
+  const user = await prisma.user.create({
+    data: { name: email.split('@')[0], email, passwordHash, membership: { create: { householdId: household.id, role: 'OWNER' } } },
+  });
+  return { id: user.id, householdId: household.id, categories: household.categories };
 }
 
 async function addTransactions(
@@ -58,7 +59,8 @@ async function addTransactions(
     const pool = user.categories.filter((c) => c.type === (income ? 'INCOME' : 'EXPENSE'));
     const category = pool[Math.floor(random() * pool.length)];
     rows.push({
-      userId: user.id,
+      householdId: user.householdId,
+      createdById: user.id,
       categoryId: category.id,
       type: category.type,
       description: `${category.name} #${i}`,
@@ -85,7 +87,7 @@ async function main() {
   const expense = heavy.categories.filter((c) => c.type === 'EXPENSE');
   await prisma.budget.createMany({
     data: expense.map((c) => ({
-      userId: heavy.id,
+      householdId: heavy.householdId,
       categoryId: c.id,
       year: 2026,
       month: 9,

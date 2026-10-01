@@ -69,7 +69,10 @@ describe('AuthService', () => {
       const { data } = prisma.user.create.mock.calls[0][0];
       expect(data.passwordHash).not.toBe('Secret123');
       expect(await bcrypt.compare('Secret123', data.passwordHash)).toBe(true);
-      expect(data.categories.createMany.data).toHaveLength(DEFAULT_CATEGORIES.length);
+      const household = data.membership.create.household.create;
+      expect(data.membership.create.role).toBe('OWNER');
+      expect(household.name).toBe('Casa de Maria');
+      expect(household.categories.createMany.data).toHaveLength(DEFAULT_CATEGORIES.length);
 
       expect(result.user).toEqual({
         id: user.id,

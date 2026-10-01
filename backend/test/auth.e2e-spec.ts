@@ -33,7 +33,9 @@ describe('Auth (e2e)', () => {
     expect(stored.passwordHash).not.toContain('Passw0rd!');
     expect(stored.passwordHash).toMatch(/^\$2[aby]\$12\$/); // bcrypt, 12 rounds
 
-    const categories = await ctx.prisma.category.count({ where: { userId: stored.id } });
+    const categories = await ctx.prisma.category.count({
+      where: { household: { members: { some: { userId: stored.id } } } },
+    });
     expect(categories).toBeGreaterThan(0);
   });
 

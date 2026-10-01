@@ -148,7 +148,11 @@ describe('Security (e2e)', () => {
         .send({ name: 'Eve', email: 'eve@test.dev', password: 'Passw0rd!', role: 'admin' })
         .expect(400);
 
-      expect(await ctx.prisma.transaction.count({ where: { userId: bob.user.id } })).toBe(0);
+      expect(
+        await ctx.prisma.transaction.count({
+          where: { household: { members: { some: { userId: bob.user.id } } } },
+        }),
+      ).toBe(0);
     });
 
     it('is not vulnerable to prototype pollution', async () => {
