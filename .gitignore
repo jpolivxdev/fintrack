@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.env
+.env.local
+.pgdata
+**/src/generated
+*.log
+.DS_Store
+.vercel

@@ -1,0 +1,38 @@
+# Local stack: PostgreSQL + API.
+#   docker compose up -d db        -> only the database (run the API with npm)
+#   docker compose up --build      -> database + API on http://localhost:3000
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fintrack
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/fintrack
+      CORS_ORIGINS: http://localhost:5173
+      JWT_ACCESS_SECRET: local-docker-access-secret-change-me
+      JWT_REFRESH_SECRET: local-docker-refresh-secret-change-me
+    ports:
+      - '3000:3000'
+
+volumes:
+  pgdata:
