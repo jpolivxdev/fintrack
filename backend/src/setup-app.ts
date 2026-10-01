@@ -129,7 +129,8 @@ export function setupSwagger(app: INestApplication): void {
       .addTag('Categories', 'Income and expense categories')
       .addTag('Transactions', 'Income and expense records')
       .addTag('Budgets', 'Monthly spending limits per category')
-      .addTag('Reports', 'Aggregated financial insights')
+      .addTag('Reports', 'Aggregated financial reports')
+      .addTag('Insights', 'Automatic, structured observations about a month')
       .addTag('Health', 'Service status')
       .build(),
   );
