@@ -110,7 +110,7 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
   });
   const user = await prisma.user.create({
     data: {
-      name: 'Conta Demo',
+      name: 'Alex Demo',
       email: DEMO_EMAIL,
       passwordHash: await bcrypt.hash(DEMO_PASSWORD, 12),
       membership: { create: { householdId: household.id, role: 'OWNER' } },
@@ -142,6 +142,8 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     if (date > todayMidnight) return;
     cardSpend.set(monthKey(date), (cardSpend.get(monthKey(date)) ?? new Prisma.Decimal(0)).plus(amount));
   };
+  // Cash spending per month, covered by a withdrawal so the wallet never goes negative.
+  const cashSpend = new Map<string, Prisma.Decimal>();
 
   const today = new Date();
   const transactions: Prisma.TransactionCreateManyInput[] = [];
@@ -161,6 +163,7 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
       const account = accountFor(categoryName, description);
       const date = dateOn(year, monthIndex, Math.min(day, lastDay));
       if (account === 'card') trackCard(date, amount);
+      if (account === 'cash') cashSpend.set(monthKey(date), (cashSpend.get(monthKey(date)) ?? new Prisma.Decimal(0)).plus(amount));
       transactions.push({
         accountId: accounts[account].id,
         householdId: household.id,
@@ -222,6 +225,15 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
       transfers.push({
         householdId: household.id, createdById: user.id, fromAccountId: accounts.nubank.id, toAccountId: accounts.reserve.id,
         amount: new Prisma.Decimal('500'), date: reserveDay, description: 'Aporte na reserva',
+      });
+    }
+    const cash = cashSpend.get(monthKey(ref));
+    if (cash) {
+      transfers.push({
+        householdId: household.id, createdById: random() < 0.5 ? partner.id : user.id,
+        fromAccountId: accounts.nubank.id, toAccountId: accounts.cash.id,
+        // Rounded up to R$ 50, like a real ATM withdrawal.
+        amount: new Prisma.Decimal(Math.ceil(cash.toNumber() / 50) * 50), date: ref, description: 'Saque',
       });
     }
     const billDay = dateOn(ref.getUTCFullYear(), ref.getUTCMonth(), 7);
