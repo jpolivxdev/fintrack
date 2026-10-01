@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsDateOnly } from '../../common/validation/decorators.js';
 import { BudgetResponseDto, MonthQueryDto } from '../../budgets/dto/budget.dto.js';
 import { TransactionType } from '../../generated/prisma/client.js';
 
@@ -30,12 +31,12 @@ export class CategoryReportQueryDto {
 
   @ApiPropertyOptional({ example: '2026-10-01', description: 'Inclusive. Defaults to the first day of the current month' })
   @IsOptional()
-  @IsDateString({ strict: true })
+  @IsDateOnly()
   startDate?: string;
 
   @ApiPropertyOptional({ example: '2026-10-31', description: 'Inclusive. Defaults to the last day of the current month' })
   @IsOptional()
-  @IsDateString({ strict: true })
+  @IsDateOnly()
   endDate?: string;
 }
 

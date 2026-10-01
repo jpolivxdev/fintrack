@@ -1,28 +1,15 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import {
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  Matches,
-  MaxLength,
-} from 'class-validator';
+import { IsEnum, IsOptional, Matches } from 'class-validator';
+import { IsSafeText } from '../../common/validation/decorators.js';
 import {
   PaginationMetaDto,
   PaginationQueryDto,
 } from '../../common/dto/pagination.dto.js';
 import { TransactionType } from '../../generated/prisma/client.js';
 
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
 export class CreateCategoryDto {
   @ApiProperty({ example: 'Mercado', maxLength: 50 })
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(50)
+  @IsSafeText({ maxLength: 50 })
   name: string;
 
   @ApiProperty({ enum: TransactionType, example: TransactionType.EXPENSE })
@@ -40,8 +27,9 @@ export class CreateCategoryDto {
     maxLength: 40,
   })
   @IsOptional()
-  @IsString()
-  @MaxLength(40)
+  @Matches(/^[a-z0-9-]{1,40}$/, {
+    message: 'icon must be a lowercase icon name like shopping-cart',
+  })
   icon?: string;
 }
 

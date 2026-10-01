@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpAdapterHost } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
@@ -11,6 +12,9 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.
  */
 export function setupApp(app: INestApplication): void {
   const config = app.get(ConfigService);
+
+  // The largest legit payload is ~1 KB; anything far beyond that is abuse.
+  (app as NestExpressApplication).useBodyParser('json', { limit: '32kb' });
 
   app.setGlobalPrefix('api', { exclude: ['/'] });
   app.use(helmet());

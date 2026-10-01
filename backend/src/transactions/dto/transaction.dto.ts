@@ -1,18 +1,14 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import {
-  IsDateString,
   IsEnum,
   IsIn,
-  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsPositive,
-  IsString,
   IsUUID,
   Max,
-  MaxLength,
 } from 'class-validator';
+import { IsDateOnly, IsSafeText } from '../../common/validation/decorators.js';
 import {
   PaginationMetaDto,
   PaginationQueryDto,
@@ -20,15 +16,9 @@ import {
 import { CategorySummaryDto } from '../../categories/dto/category.dto.js';
 import { TransactionType } from '../../generated/prisma/client.js';
 
-const trim = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.trim() : value;
-
 export class CreateTransactionDto {
   @ApiProperty({ example: 'Supermercado Extra', maxLength: 120 })
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(120)
+  @IsSafeText({ maxLength: 120 })
   description: string;
 
   @ApiProperty({
@@ -45,7 +35,7 @@ export class CreateTransactionDto {
   type: TransactionType;
 
   @ApiProperty({ example: '2026-10-01', description: 'Date in YYYY-MM-DD format' })
-  @IsDateString({ strict: true })
+  @IsDateOnly()
   date: string;
 
   @ApiProperty({ example: '3d8f1a2b-9c4e-4b7a-8f6d-1e2c3b4a5d6e' })
@@ -54,9 +44,7 @@ export class CreateTransactionDto {
 
   @ApiPropertyOptional({ example: 'Compra do mês', maxLength: 500 })
   @IsOptional()
-  @Transform(trim)
-  @IsString()
-  @MaxLength(500)
+  @IsSafeText({ maxLength: 500, multiline: true, optional: true })
   notes?: string;
 }
 
@@ -78,19 +66,17 @@ export class ListTransactionsQueryDto extends PaginationQueryDto {
 
   @ApiPropertyOptional({ example: '2026-10-01', description: 'Inclusive (YYYY-MM-DD)' })
   @IsOptional()
-  @IsDateString({ strict: true })
+  @IsDateOnly()
   startDate?: string;
 
   @ApiPropertyOptional({ example: '2026-10-31', description: 'Inclusive (YYYY-MM-DD)' })
   @IsOptional()
-  @IsDateString({ strict: true })
+  @IsDateOnly()
   endDate?: string;
 
   @ApiPropertyOptional({ example: 'mercado', description: 'Case-insensitive search in description' })
   @IsOptional()
-  @Transform(trim)
-  @IsString()
-  @MaxLength(120)
+  @IsSafeText({ maxLength: 120, optional: true })
   search?: string;
 
   @ApiPropertyOptional({ enum: TRANSACTION_SORT_FIELDS, default: 'date' })

@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { IsSafeText } from '../../common/validation/decorators.js';
 import {
   IsEmail,
-  IsNotEmpty,
   IsString,
   Matches,
   MaxLength,
@@ -11,10 +11,7 @@ import {
 
 export class RegisterDto {
   @ApiProperty({ example: 'Maria Silva', maxLength: 80 })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
+  @IsSafeText({ maxLength: 80 })
   name: string;
 
   @ApiProperty({ example: 'maria@example.com' })
