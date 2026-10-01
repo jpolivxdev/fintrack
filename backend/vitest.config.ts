@@ -12,6 +12,7 @@ export default defineConfig({
       exclude: [
         'src/generated/**',
         'src/main.ts',
+        'src/seed/**',
         'src/**/*.module.ts',
         'src/**/*.dto.ts',
         'src/**/*.spec.ts',
