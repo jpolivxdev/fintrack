@@ -5,6 +5,7 @@ services:
     name: fintrack-api
     runtime: docker
     plan: free
+    region: virginia # same region as the Neon database (aws-us-east-1)
     rootDir: backend
     dockerfilePath: ./Dockerfile
     healthCheckPath: /api/health
