@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SegmentedControl } from '@/components/segmented-control'
 import { ImportStatement } from '@/components/settings/import-statement'
+import { ImportVida } from '@/components/settings/import-vida'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -266,6 +267,13 @@ export function SettingsPage() {
           </form>
         </Section>
       )}
+
+      <Section
+        title="Importar do Vida App"
+        description='No Vida App, toque em "Exportar meus dados" no início e escolha o arquivo aqui. Gastos, tarefas pendentes e a meta vêm juntos.'
+      >
+        <ImportVida />
+      </Section>
 
       <Section title="Importar extrato" description="Traga os lançamentos do banco a partir do arquivo OFX ou CSV.">
         <ImportStatement />
