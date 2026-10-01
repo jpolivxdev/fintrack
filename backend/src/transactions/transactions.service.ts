@@ -106,7 +106,8 @@ export class TransactionsService {
     }
 
     const updated = await this.prisma.transaction.update({
-      where: { id },
+      // Scoped by owner in the write itself too (defense in depth).
+      where: { id, userId },
       data: {
         description: dto.description,
         amount: dto.amount !== undefined ? toDecimal(dto.amount) : undefined,
@@ -122,7 +123,7 @@ export class TransactionsService {
 
   async remove(userId: string, id: string): Promise<void> {
     await this.getOwned(userId, id);
-    await this.prisma.transaction.delete({ where: { id } });
+    await this.prisma.transaction.delete({ where: { id, userId } });
   }
 
   private buildWhere(

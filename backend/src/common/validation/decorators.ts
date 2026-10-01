@@ -14,9 +14,11 @@ import {
  * the others have no place in user-facing text. Multiline text keeps
  * tab, LF and CR.
  */
+/* oxlint-disable no-control-regex -- matching control characters is the point */
 const NO_CONTROL_CHARS_MULTILINE =
   /^[^\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]*$/;
 const NO_CONTROL_CHARS = /^[^\u0000-\u001F\u007F]*$/;
+/* oxlint-enable no-control-regex */
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;

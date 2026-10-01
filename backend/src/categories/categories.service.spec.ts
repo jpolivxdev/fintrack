@@ -100,6 +100,6 @@ describe('CategoriesService', () => {
 
     await service.remove(USER, 'cat-1');
 
-    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'cat-1' } });
+    expect(prisma.category.delete).toHaveBeenCalledWith({ where: { id: 'cat-1', userId: USER } });
   });
 });

@@ -109,7 +109,7 @@ export class BudgetsService {
   ): Promise<BudgetResponseDto> {
     await this.getOwned(userId, id);
     const budget = await this.prisma.budget.update({
-      where: { id },
+      where: { id, userId },
       data: { monthlyLimit: toDecimal(dto.monthlyLimit) },
       include: { category: true },
     });
@@ -119,7 +119,7 @@ export class BudgetsService {
 
   async remove(userId: string, id: string): Promise<void> {
     await this.getOwned(userId, id);
-    await this.prisma.budget.delete({ where: { id } });
+    await this.prisma.budget.delete({ where: { id, userId } });
   }
 
   /**

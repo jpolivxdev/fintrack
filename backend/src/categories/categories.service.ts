@@ -83,7 +83,7 @@ export class CategoriesService {
     }
 
     const updated = await this.prisma.category.update({
-      where: { id },
+      where: { id, userId },
       data: dto,
       include: WITH_COUNT,
     });
@@ -97,7 +97,7 @@ export class CategoriesService {
         `Category has ${category._count.transactions} transaction(s). Move or delete them before deleting the category.`,
       );
     }
-    await this.prisma.category.delete({ where: { id } });
+    await this.prisma.category.delete({ where: { id, userId } });
   }
 
   /**

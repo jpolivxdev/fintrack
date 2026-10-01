@@ -175,4 +175,105 @@ describe('Security (e2e)', () => {
       expect(res.headers['x-content-type-options']).toBe('nosniff');
     });
   });
+
+  describe('Broken Object Level Authorization (BOLA / IDOR)', () => {
+    let bob: Session;
+    const owned: Record<'transactions' | 'categories' | 'budgets', string> = {
+      transactions: '',
+      categories: '',
+      budgets: '',
+    };
+    const patchBodies = {
+      transactions: { amount: 1, description: 'hijacked' },
+      categories: { name: 'hijacked' },
+      budgets: { monthlyLimit: 1 },
+    };
+    const MISSING_ID = '7f1c2b8e-3a4d-4f6b-9c1e-2d3f4a5b6c7d';
+
+    beforeAll(async () => {
+      bob = await registerUser(ctx, 'BobBola');
+      const category = await ctx
+        .http()
+        .post('/api/categories')
+        .set(alice.auth)
+        .send({ name: 'Private', type: 'EXPENSE' })
+        .expect(201);
+      owned.categories = category.body.id;
+      owned.transactions = (await createTransaction(alice, { categoryId: owned.categories, description: 'Secret' }).expect(201)).body.id;
+      owned.budgets = (
+        await ctx
+          .http()
+          .post('/api/budgets')
+          .set(alice.auth)
+          .send({ categoryId: owned.categories, year: 2026, month: 9, monthlyLimit: 500 })
+          .expect(201)
+      ).body.id;
+    });
+
+    const resources = ['transactions', 'categories', 'budgets'] as const;
+    const verbs = ['get', 'patch', 'delete'] as const;
+    const cases = resources.flatMap((resource) => verbs.map((verb) => [resource, verb] as const));
+
+    const call = (session: Session, resource: (typeof resources)[number], verb: (typeof verbs)[number], id: string) => {
+      const req = ctx.http()[verb](`/api/${resource}/${id}`).set(session.auth);
+      return verb === 'patch' ? req.send(patchBodies[resource]) : req;
+    };
+
+    it.each(cases)("another user's %s → %s returns 404, indistinguishable from a missing id", async (resource, verb) => {
+      const foreign = await call(bob, resource, verb, owned[resource]);
+      const missing = await call(bob, resource, verb, MISSING_ID);
+
+      expect(foreign.status).toBe(404);
+      // Same status and same body: ids of other users cannot be enumerated.
+      expect(foreign.body).toEqual(missing.body);
+    });
+
+    it("leaves the owner's data untouched after the attempts", async () => {
+      const tx = await ctx.http().get(`/api/transactions/${owned.transactions}`).set(alice.auth).expect(200);
+      expect(tx.body).toMatchObject({ description: 'Secret', amount: '10.00' });
+      const category = await ctx.http().get(`/api/categories/${owned.categories}`).set(alice.auth).expect(200);
+      expect(category.body.name).toBe('Private');
+      const budget = await ctx.http().get(`/api/budgets/${owned.budgets}`).set(alice.auth).expect(200);
+      expect(budget.body.monthlyLimit).toBe('500.00');
+    });
+
+    it("cannot reference another user's category when writing", async () => {
+      await createTransaction(bob, { categoryId: owned.categories }).expect(404);
+      await ctx
+        .http()
+        .post('/api/budgets')
+        .set(bob.auth)
+        .send({ categoryId: owned.categories, year: 2026, month: 10, monthlyLimit: 1 })
+        .expect(404);
+
+      const own = await ctx.http().get('/api/categories?type=EXPENSE&limit=1').set(bob.auth);
+      const bobTx = (await createTransaction(bob, { categoryId: own.body.data[0].id }).expect(201)).body.id;
+      // Moving his own transaction into Alice's category is blocked too.
+      await ctx
+        .http()
+        .patch(`/api/transactions/${bobTx}`)
+        .set(bob.auth)
+        .send({ categoryId: owned.categories })
+        .expect(404);
+    });
+
+    it("filters and reports never leak another user's data", async () => {
+      const filtered = await ctx
+        .http()
+        .get(`/api/transactions?categoryId=${owned.categories}`)
+        .set(bob.auth)
+        .expect(200);
+      expect(filtered.body.meta.total).toBe(0);
+
+      const byCategory = await ctx
+        .http()
+        .get('/api/reports/by-category?startDate=2026-09-01&endDate=2026-09-30')
+        .set(bob.auth)
+        .expect(200);
+      expect(byCategory.body.categories.map((c: { categoryId: string }) => c.categoryId)).not.toContain(owned.categories);
+
+      const budgets = await ctx.http().get('/api/budgets?year=2026&month=9').set(bob.auth).expect(200);
+      expect(budgets.body.data).toEqual([]);
+    });
+  });
 });

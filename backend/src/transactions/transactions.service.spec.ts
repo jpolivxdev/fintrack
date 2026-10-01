@@ -189,7 +189,7 @@ describe('TransactionsService', () => {
 
       await service.remove(USER, 'tx-1');
 
-      expect(prisma.transaction.delete).toHaveBeenCalledWith({ where: { id: 'tx-1' } });
+      expect(prisma.transaction.delete).toHaveBeenCalledWith({ where: { id: 'tx-1', userId: USER } });
     });
 
     it('does not delete when the transaction is not owned', async () => {
