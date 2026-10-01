@@ -8,3 +8,5 @@ coverage
 *.log
 .DS_Store
 .vercel
+*.tsbuildinfo
+backend/load-tests/results

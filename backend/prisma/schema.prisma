@@ -82,7 +82,10 @@ model Transaction {
   /// Restrict: a category with transactions cannot be deleted by accident.
   category Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
 
-  @@index([userId, date])
+  /// Covering index: listing (userId + date order) and every report aggregate
+  /// (sums by type/category over a date range) are answered from the index
+  /// alone (Index Only Scan), without reading table rows. See LOAD_TESTING.md.
+  @@index([userId, date, type, categoryId, amount], map: "transactions_user_date_covering_idx")
   @@index([userId, categoryId])
   @@map("transactions")
 }
