@@ -133,7 +133,7 @@ function MonthlyEvolution() {
   }))
 
   return (
-    <Panel delay={0.05} className="lg:col-span-3">
+    <Panel delay={0.05} className="xl:col-span-3">
       <PanelTitle>Evolução nos últimos 6 meses</PanelTitle>
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
@@ -185,14 +185,14 @@ function SpendingByCategory() {
   const config: ChartConfig = Object.fromEntries(items.map((c) => [c.categoryId, { label: c.name, color: c.color ?? 'var(--chart-1)' }]))
 
   return (
-    <Panel delay={0.1} className="lg:col-span-2">
+    <Panel delay={0.1} className="xl:col-span-2">
       <PanelTitle>Gastos por categoria</PanelTitle>
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : items.length === 0 ? (
         <EmptyState text="Nenhuma despesa neste mês." />
       ) : (
-        <div className="grid gap-5 sm:grid-cols-[10rem_1fr] sm:items-center lg:grid-cols-1 xl:grid-cols-[10rem_1fr]">
+        <div className="grid gap-6 sm:grid-cols-[10rem_minmax(0,1fr)] sm:items-center xl:grid-cols-1">
           <ChartContainer config={config} className="mx-auto aspect-square h-40">
             <PieChart>
               <ChartTooltip
@@ -218,13 +218,13 @@ function SpendingByCategory() {
               </Pie>
             </PieChart>
           </ChartContainer>
-          <ul className="grid gap-3">
+          <ul className="grid min-w-0 grid-cols-1 gap-3">
             {top.map((c) => (
               <li key={c.categoryId} className="flex items-center gap-3 text-sm">
                 <CategoryIcon icon={c.icon} color={c.color} size="sm" />
                 <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                <span className="text-muted-foreground tabular">{formatPercent(c.percentage)}</span>
-                <span className="w-24 text-right font-medium tabular">{formatMoney(c.total)}</span>
+                <span className="w-12 shrink-0 text-right text-xs text-muted-foreground tabular">{formatPercent(c.percentage)}</span>
+                <span className="shrink-0 text-right font-medium tabular">{formatMoney(c.total)}</span>
               </li>
             ))}
           </ul>
@@ -241,7 +241,7 @@ function BudgetsSnapshot() {
   const budgets = [...(data?.budgets ?? [])].sort((a, b) => b.percentUsed - a.percentUsed).slice(0, 4)
 
   return (
-    <Panel delay={0.15} className="lg:col-span-2">
+    <Panel delay={0.15} className="xl:col-span-2">
       <PanelTitle
         action={
           <Button variant="link" size="sm" asChild className="px-0">
@@ -285,7 +285,7 @@ function RecentTransactions() {
   const { data, isLoading } = useTransactions({ page: 1, limit: 6, startDate: start, endDate: end, sortBy: 'date', order: 'desc' })
 
   return (
-    <Panel delay={0.2} className="lg:col-span-3">
+    <Panel delay={0.2} className="xl:col-span-3">
       <PanelTitle
         action={
           <Button variant="link" size="sm" asChild className="px-0">
@@ -339,7 +339,7 @@ export function DashboardPage() {
         </Button>
       </div>
       <Summary />
-      <div className="grid min-w-0 gap-6 lg:grid-cols-5">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-5">
         <MonthlyEvolution />
         <SpendingByCategory />
         <BudgetsSnapshot />

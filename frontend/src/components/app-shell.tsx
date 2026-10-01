@@ -106,7 +106,7 @@ export function AppShell() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur-md sm:px-4">
           <SidebarTrigger aria-label="Alternar menu" />
           <div className="mx-auto sm:mx-0">
