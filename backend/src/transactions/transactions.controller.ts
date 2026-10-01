@@ -5,6 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Header,
+  Res,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -19,6 +21,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -31,6 +34,13 @@ import {
   TransactionResponseDto,
   UpdateTransactionDto,
 } from './dto/transaction.dto.js';
+import {
+  ExportTransactionsQueryDto,
+  ImportResultDto,
+  ImportTransactionsDto,
+  MAX_IMPORT_ROWS,
+} from './dto/transaction-io.dto.js';
+import type { Response } from 'express';
 import { TransactionsService } from './transactions.service.js';
 
 @ApiTags('Transactions')
@@ -58,6 +68,36 @@ export class TransactionsController {
   @ApiOkResponse({ type: PaginatedTransactionsDto })
   findAll(@CurrentUser('householdId') householdId: string, @Query() query: ListTransactionsQueryDto) {
     return this.transactions.findAll(householdId, query);
+  }
+
+  // Declared before ':id' so "export" is not parsed as an id.
+  @Get('export')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @ApiProduces('text/csv')
+  @ApiOperation({
+    summary: 'Export transactions as CSV',
+    description: "Brazilian Excel format (';' separator, decimal comma, dd/mm/yyyy, UTF-8 BOM). Text cells are protected against formula injection.",
+  })
+  @ApiOkResponse({ description: 'CSV file', schema: { type: 'string' } })
+  async export(
+    @CurrentUser('householdId') householdId: string,
+    @Query() query: ExportTransactionsQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<string> {
+    const { filename, content } = await this.transactions.exportCsv(householdId, query);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return content;
+  }
+
+  @Post('import')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Import a bank statement',
+    description: `Rows parsed from CSV/OFX by the client (max ${MAX_IMPORT_ROWS}). Valid rows are created, invalid ones reported, duplicates skipped.`,
+  })
+  @ApiOkResponse({ type: ImportResultDto })
+  importRows(@CurrentUser() user: AuthUser, @Body() dto: ImportTransactionsDto) {
+    return this.transactions.importRows(user.householdId, dto, user.id);
   }
 
   @Get(':id')

@@ -2,7 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import type { NextFunction, Request, Response } from 'express';
+import { json, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import { requestIdMiddleware } from './common/logging/request-id.middleware.js';
 
@@ -79,6 +79,8 @@ export function setupApp(app: INestApplication): void {
   });
 
   // The largest legit payload is ~1 KB; anything far beyond that is abuse.
+  // Only statement imports (up to 500 rows) get a larger allowance.
+  expressApp.use('/api/transactions/import', json({ limit: '512kb' }));
   expressApp.useBodyParser('json', { limit: '32kb' });
 
   app.setGlobalPrefix('api', { exclude: ['/'] });

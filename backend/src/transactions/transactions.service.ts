@@ -16,6 +16,8 @@ import type {
 import { randomUUID } from 'node:crypto';
 import { AccountsService } from '../accounts/accounts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { brDecimal, toCsv } from './csv.js';
+import { ExportTransactionsQueryDto, ImportResultDto, ImportTransactionsDto } from './dto/transaction-io.dto.js';
 import { buildInstallments } from './installments.js';
 import {
   CreateTransactionDto,
@@ -199,6 +201,115 @@ export class TransactionsService {
       },
     });
     return count;
+  }
+
+  /** Every transaction matching the filters as a Brazilian-Excel-friendly CSV. */
+  async exportCsv(householdId: string, query: ExportTransactionsQueryDto): Promise<{ filename: string; content: string }> {
+    const where = this.buildWhere(householdId, { ...query, page: 1, limit: 1, sortBy: 'date', order: 'asc' });
+    const rows = await this.prisma.transaction.findMany({
+      where,
+      include: TX_INCLUDE,
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      take: 10_000,
+    });
+    const content = toCsv(
+      ['Data', 'Descrição', 'Categoria', 'Tipo', 'Conta', 'Valor', 'Parcela', 'Observações', 'Registrado por'],
+      rows.map((t) => {
+        const signed = t.type === 'EXPENSE' ? `-${formatMoney(t.amount)}` : formatMoney(t.amount);
+        return [
+          { number: formatDateOnly(t.date).split('-').reverse().join('/') },
+          { text: t.description },
+          { text: t.category.name },
+          { text: t.type === 'EXPENSE' ? 'Despesa' : 'Receita' },
+          { text: t.account.name },
+          { number: brDecimal(signed) },
+          { text: t.installmentNumber ? `${t.installmentNumber}/${t.installmentTotal}` : '' },
+          { text: t.notes ?? '' },
+          { text: t.createdBy?.name ?? '' },
+        ];
+      }),
+    );
+    return { filename: `fintrack-transacoes-${formatDateOnly(new Date())}.csv`, content };
+  }
+
+  /**
+   * Imports a bank statement already parsed by the client (CSV/OFX).
+   * Valid rows are created, invalid ones are reported, duplicates skipped:
+   * same bank id (externalId) or same date + amount + description in the account.
+   */
+  async importRows(householdId: string, dto: ImportTransactionsDto, createdById: string): Promise<ImportResultDto> {
+    const account = await this.accounts.resolveForEntry(householdId, dto.accountId);
+    const categories = await this.prisma.category.findMany({ where: { householdId }, select: { id: true, name: true, type: true } });
+    const byName = new Map(categories.map((c) => [`${c.type}:${c.name.trim().toLowerCase()}`, c.id]));
+    const defaults: Record<TransactionType, string | undefined> = {
+      EXPENSE: dto.defaultExpenseCategoryId,
+      INCOME: dto.defaultIncomeCategoryId,
+    };
+    for (const [type, id] of Object.entries(defaults)) {
+      if (id && !categories.some((c) => c.id === id && c.type === type)) {
+        throw new BadRequestException(`Default ${type.toLowerCase()} category not found or of the wrong type`);
+      }
+    }
+
+    const errors: ImportResultDto['errors'] = [];
+    const candidates = dto.rows.flatMap((row, index) => {
+      const type: TransactionType = row.type ?? (row.amount < 0 ? 'EXPENSE' : 'INCOME');
+      const categoryId = (row.category && byName.get(`${type}:${row.category.trim().toLowerCase()}`)) || defaults[type];
+      if (!categoryId) {
+        errors.push({ row: index, message: `No category for ${type.toLowerCase()} "${row.category ?? ''}"` });
+        return [];
+      }
+      return [{ row, type, categoryId, amount: toDecimal(Math.abs(row.amount)) }];
+    });
+
+    // Duplicate detection against what the account already has (and within the file).
+    const externalIds = candidates.flatMap((c) => (c.row.externalId ? [c.row.externalId] : []));
+    const dates = candidates.map((c) => c.row.date).sort();
+    const [byExternal, sameDays] = await Promise.all([
+      externalIds.length
+        ? this.prisma.transaction.findMany({ where: { accountId: account.id, externalId: { in: externalIds } }, select: { externalId: true } })
+        : Promise.resolve([]),
+      dates.length
+        ? this.prisma.transaction.findMany({
+            where: { accountId: account.id, date: { gte: parseDateOnly(dates[0]), lte: parseDateOnly(dates.at(-1)!) } },
+            select: { date: true, amount: true, description: true },
+          })
+        : Promise.resolve([]),
+    ]);
+    const seenExternal = new Set(byExternal.map((t) => t.externalId));
+    const key = (date: string, amount: string, description: string) => `${date}|${amount}|${description.trim().toLowerCase()}`;
+    const seenKeys = new Set(sameDays.map((t) => key(formatDateOnly(t.date), formatMoney(t.amount), t.description)));
+
+    let skipped = 0;
+    const toCreate = candidates.filter((c) => {
+      const k = key(c.row.date, formatMoney(c.amount), c.row.description);
+      const duplicate = (c.row.externalId && seenExternal.has(c.row.externalId)) || seenKeys.has(k);
+      if (duplicate) {
+        skipped += 1;
+        return false;
+      }
+      seenKeys.add(k);
+      if (c.row.externalId) seenExternal.add(c.row.externalId);
+      return true;
+    });
+
+    const { count } = await this.prisma.transaction.createMany({
+      data: toCreate.map((c) => ({
+        householdId,
+        createdById,
+        accountId: account.id,
+        categoryId: c.categoryId,
+        type: c.type,
+        amount: c.amount,
+        description: c.row.description,
+        notes: c.row.notes,
+        date: parseDateOnly(c.row.date),
+        externalId: c.row.externalId,
+      })),
+      // Backstop for a concurrent import of the same file (unique account + bank id).
+      skipDuplicates: true,
+    });
+    return { created: count, skipped: skipped + (toCreate.length - count), errors };
   }
 
   private buildWhere(
