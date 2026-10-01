@@ -25,5 +25,7 @@ services:
         value: 15m
       - key: JWT_REFRESH_EXPIRES_IN_DAYS
         value: '7'
+      - key: TRUST_PROXY_HOPS
+        value: '3' # proxies in Render's chain (see SECURITY.md for how this was verified)
       - key: SEED_DEMO_ON_START
         value: 'true'

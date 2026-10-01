@@ -31,15 +31,16 @@ export class EnvironmentVariables {
   @IsOptional()
   CORS_ORIGINS?: string;
 
+  /** At least 32 chars (>= 256 bits when random). Generate with `openssl rand -hex 48`. */
   @IsString()
-  @MinLength(16)
+  @MinLength(32)
   JWT_ACCESS_SECRET: string;
 
   @IsString()
   JWT_ACCESS_EXPIRES_IN = '15m';
 
   @IsString()
-  @MinLength(16)
+  @MinLength(32)
   JWT_REFRESH_SECRET: string;
 
   @Type(() => Number)
@@ -49,15 +50,35 @@ export class EnvironmentVariables {
 
   @Type(() => Number)
   @IsInt()
-  @Min(10)
+  @Min(12)
   @Max(15)
   BCRYPT_SALT_ROUNDS = 12;
 
-  /** Max auth requests per IP per minute (login/register brute-force protection). */
+  /** Login/register attempts allowed per IP in each THROTTLE_AUTH_TTL_MINUTES window. */
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  THROTTLE_AUTH_LIMIT = 10;
+  THROTTLE_AUTH_LIMIT = 5;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_AUTH_TTL_MINUTES = 15;
+
+  /** Requests per IP per minute on every other route. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  THROTTLE_GLOBAL_LIMIT = 300;
+
+  /**
+   * Number of reverse proxies in front of the app (Render = 1). Needed so the
+   * rate limiter sees the client IP; 0 means X-Forwarded-For is ignored.
+   */
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  TRUST_PROXY_HOPS = 0;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -73,6 +94,16 @@ export function validateEnv(config: Record<string, unknown>) {
       )
       .join('\n');
     throw new Error(`Invalid environment variables:\n${details}`);
+  }
+  // A leaked refresh secret must not let anyone mint access tokens (and vice versa).
+  if (validated.JWT_ACCESS_SECRET === validated.JWT_REFRESH_SECRET) {
+    throw new Error('JWT_ACCESS_SECRET and JWT_REFRESH_SECRET must be different');
+  }
+  if (
+    validated.NODE_ENV === 'production' &&
+    /change-me/i.test(validated.JWT_ACCESS_SECRET + validated.JWT_REFRESH_SECRET)
+  ) {
+    throw new Error('Placeholder JWT secrets are not allowed in production');
   }
   return validated;
 }

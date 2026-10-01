@@ -18,10 +18,14 @@ export default defineConfig({
     env: {
       NODE_ENV: 'test',
       DATABASE_URL: TEST_DATABASE_URL,
-      JWT_ACCESS_SECRET: 'e2e-access-secret-0123456789',
-      JWT_REFRESH_SECRET: 'e2e-refresh-secret-0123456789',
-      BCRYPT_SALT_ROUNDS: '10',
-      THROTTLE_AUTH_LIMIT: '1000',
+      JWT_ACCESS_SECRET: 'e2e-access-secret-0123456789abcdef0123456789',
+      JWT_REFRESH_SECRET: 'e2e-refresh-secret-0123456789abcdef0123456789',
+      BCRYPT_SALT_ROUNDS: '12',
+      // Production limits. Each test request comes from its own fake client IP
+      // (see test-app.ts), so only tests that pin an IP hit the limit.
+      THROTTLE_AUTH_LIMIT: '5',
+      THROTTLE_AUTH_TTL_MINUTES: '15',
+      TRUST_PROXY_HOPS: '1',
       CORS_ORIGINS: 'http://localhost:5173',
     },
   },

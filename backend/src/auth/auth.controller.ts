@@ -5,7 +5,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -18,7 +17,7 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { ThrottlerGuard } from '@nestjs/throttler';
+import { CredentialsThrottle } from '../common/throttling/throttling.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { AuthService } from './auth.service.js';
@@ -28,13 +27,15 @@ import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
 
 @ApiTags('Auth')
-@ApiTooManyRequestsResponse({ description: 'Rate limit exceeded' })
-@UseGuards(ThrottlerGuard)
+@ApiTooManyRequestsResponse({
+  description: 'Rate limit exceeded (login/register: 5 attempts per IP every 15 min)',
+})
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Public()
+  @CredentialsThrottle()
   @Post('register')
   @ApiOperation({
     summary: 'Create an account',
@@ -48,6 +49,7 @@ export class AuthController {
   }
 
   @Public()
+  @CredentialsThrottle()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Log in with email and password' })

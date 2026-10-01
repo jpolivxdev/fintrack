@@ -1,3 +1,4 @@
+import { JwtService } from '@nestjs/jwt';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createTestApp, registerUser, resetDatabase, TestContext } from './e2e/test-app.js';
 
@@ -274,6 +275,124 @@ describe('Security (e2e)', () => {
 
       const budgets = await ctx.http().get('/api/budgets?year=2026&month=9').set(bob.auth).expect(200);
       expect(budgets.body.data).toEqual([]);
+    });
+  });
+
+  describe('Authentication and JWT', () => {
+    const jwt = new JwtService({});
+    const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET!;
+    let victim: Session;
+
+    const getMe = (token: string) =>
+      ctx.http().get('/api/auth/me').set('Authorization', `Bearer ${token}`);
+
+    const b64url = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64url');
+
+    beforeAll(async () => {
+      victim = await registerUser(ctx, 'Victim');
+    });
+
+    it('requires a token on protected routes', async () => {
+      await ctx.http().get('/api/transactions').expect(401);
+      await ctx.http().get('/api/reports/summary').set('Authorization', 'Bearer').expect(401);
+      await ctx.http().get('/api/categories').set('Authorization', 'Basic dXNlcjpwYXNz').expect(401);
+    });
+
+    it('accepts a valid token', async () => {
+      await getMe(victim.accessToken).expect(200);
+    });
+
+    it('rejects an expired token', async () => {
+      const expired = await jwt.signAsync(
+        { sub: victim.user.id, email: victim.email, iat: Math.floor(Date.now() / 1000) - 3600 },
+        { secret: ACCESS_SECRET, expiresIn: '1s', algorithm: 'HS256' },
+      );
+      await getMe(expired).expect(401);
+    });
+
+    it('rejects a token signed with another secret', async () => {
+      const forged = await jwt.signAsync(
+        { sub: victim.user.id, email: victim.email },
+        { secret: 'attacker-guessed-secret-0123456789abcdef', algorithm: 'HS256' },
+      );
+      await getMe(forged).expect(401);
+    });
+
+    it('rejects a token whose payload was tampered with', async () => {
+      const attacker = await registerUser(ctx, 'Attacker');
+      const [header, , signature] = attacker.accessToken.split('.');
+      // Same signature, payload swapped to impersonate the victim.
+      const tampered = [header, b64url({ sub: victim.user.id, email: victim.email }), signature].join('.');
+      await getMe(tampered).expect(401);
+    });
+
+    it('rejects "alg: none" and algorithm switching', async () => {
+      const unsigned = [b64url({ alg: 'none', typ: 'JWT' }), b64url({ sub: victim.user.id }), ''].join('.');
+      await getMe(unsigned).expect(401);
+
+      const hs512 = await jwt.signAsync(
+        { sub: victim.user.id, email: victim.email },
+        { secret: ACCESS_SECRET, algorithm: 'HS512' },
+      );
+      await getMe(hs512).expect(401);
+    });
+
+    it('does not accept a refresh token as an access token', async () => {
+      await getMe(victim.refreshToken).expect(401);
+    });
+
+    it("rejects tokens of a deleted user immediately", async () => {
+      const doomed = await registerUser(ctx, 'Doomed');
+      await getMe(doomed.accessToken).expect(200);
+
+      await ctx.prisma.user.delete({ where: { id: doomed.user.id } });
+
+      await getMe(doomed.accessToken).expect(401);
+      await ctx.http().post('/api/auth/refresh').send({ refreshToken: doomed.refreshToken }).expect(401);
+    });
+  });
+
+  describe('Rate limiting', () => {
+    it('blocks the 6th login attempt from the same IP within the window', async () => {
+      const ip = '203.0.113.10';
+      const attempt = () =>
+        ctx
+          .http()
+          .post('/api/auth/login')
+          .set('X-Forwarded-For', ip)
+          .send({ email: 'target@test.dev', password: 'guess-1234' });
+
+      for (let i = 0; i < 5; i++) await attempt().expect(401);
+      const blocked = await attempt().expect(429);
+      expect(blocked.body).toEqual({
+        statusCode: 429,
+        message: 'Too many requests, please try again later',
+      });
+      expect(blocked.headers['retry-after-credentials']).toBeDefined();
+    });
+
+    it('keeps serving other clients while one is blocked', async () => {
+      await ctx
+        .http()
+        .post('/api/auth/login')
+        .set('X-Forwarded-For', '203.0.113.11')
+        .send({ email: 'target@test.dev', password: 'guess-1234' })
+        .expect(401);
+    });
+
+    it('limits registration the same way', async () => {
+      const ip = '203.0.113.20';
+      for (let i = 0; i < 5; i++) {
+        await ctx.http().post('/api/auth/register').set('X-Forwarded-For', ip).send({}).expect(400);
+      }
+      await ctx.http().post('/api/auth/register').set('X-Forwarded-For', ip).send({}).expect(429);
+    });
+
+    it('does not apply the strict limit to regular endpoints', async () => {
+      const ip = '203.0.113.30';
+      for (let i = 0; i < 8; i++) {
+        await ctx.http().get('/api/transactions').set('X-Forwarded-For', ip).set(alice.auth).expect(200);
+      }
     });
   });
 });

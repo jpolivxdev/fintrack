@@ -14,6 +14,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { JWT_ALGORITHM } from './auth.constants.js';
 
 export interface AccessTokenPayload {
   sub: string;
@@ -35,13 +36,20 @@ export class AuthService {
    * Compared against when the email does not exist, so a login attempt takes
    * the same time whether or not the account exists (no user enumeration).
    */
-  private readonly dummyHash = bcrypt.hashSync('timing-attack-guard', 10);
+  private readonly dummyHash: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
-  ) {}
+  ) {
+    // Same cost factor as real hashes, otherwise the timing would differ.
+    this.dummyHash = bcrypt.hashSync('timing-attack-guard', this.saltRounds);
+  }
+
+  private get saltRounds(): number {
+    return this.config.get<number>('BCRYPT_SALT_ROUNDS', 12);
+  }
 
   async register(dto: RegisterDto): Promise<AuthResponseDto> {
     const existing = await this.prisma.user.findUnique({
@@ -52,10 +60,7 @@ export class AuthService {
       throw new ConflictException('Email is already registered');
     }
 
-    const passwordHash = await bcrypt.hash(
-      dto.password,
-      this.config.get<number>('BCRYPT_SALT_ROUNDS', 12),
-    );
+    const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
 
     const user = await this.prisma.user.create({
       data: {
@@ -150,6 +155,7 @@ export class AuthService {
     return this.jwt.signAsync(payload, {
       secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
       expiresIn: this.config.get('JWT_ACCESS_EXPIRES_IN', '15m'),
+      algorithm: JWT_ALGORITHM,
     });
   }
 
@@ -160,6 +166,7 @@ export class AuthService {
     const token = await this.jwt.signAsync(payload, {
       secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
       expiresIn: `${days}d`,
+      algorithm: JWT_ALGORITHM,
     });
 
     await this.prisma.refreshToken.create({
@@ -177,6 +184,7 @@ export class AuthService {
     try {
       return await this.jwt.verifyAsync<RefreshTokenPayload>(token, {
         secret: this.config.getOrThrow<string>('JWT_REFRESH_SECRET'),
+        algorithms: [JWT_ALGORITHM],
       });
     } catch {
       throw new UnauthorizedException(INVALID_REFRESH);

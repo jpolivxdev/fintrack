@@ -29,8 +29,8 @@ services:
       PORT: 3000
       DATABASE_URL: postgresql://postgres:postgres@db:5432/fintrack
       CORS_ORIGINS: http://localhost:5173
-      JWT_ACCESS_SECRET: local-docker-access-secret-change-me
-      JWT_REFRESH_SECRET: local-docker-refresh-secret-change-me
+      JWT_ACCESS_SECRET: local-docker-only-access-secret-0123456789abcdef
+      JWT_REFRESH_SECRET: local-docker-only-refresh-secret-0123456789abcdef
     ports:
       - '3000:3000'
 

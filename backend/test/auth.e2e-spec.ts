@@ -31,7 +31,7 @@ describe('Auth (e2e)', () => {
 
     const stored = await ctx.prisma.user.findUniqueOrThrow({ where: { email: 'ana@test.dev' } });
     expect(stored.passwordHash).not.toContain('Passw0rd!');
-    expect(stored.passwordHash).toMatch(/^\$2[aby]\$10\$/); // bcrypt, 10 rounds
+    expect(stored.passwordHash).toMatch(/^\$2[aby]\$12\$/); // bcrypt, 12 rounds
 
     const categories = await ctx.prisma.category.count({ where: { userId: stored.id } });
     expect(categories).toBeGreaterThan(0);

@@ -6,10 +6,21 @@ import { AppModule } from '../../src/app.module.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { setupApp } from '../../src/setup-app.js';
 
+type Agent = ReturnType<typeof request>;
+
 export interface TestContext {
   app: INestApplication<Server>;
   prisma: PrismaService;
-  http: () => ReturnType<typeof request>;
+  /** Requests from a fresh client IP each time (override with .set('X-Forwarded-For', ip)). */
+  http: () => Pick<Agent, 'get' | 'post' | 'patch' | 'delete'>;
+}
+
+let ipCounter = 0;
+
+/** A unique fake client IP, as a reverse proxy would report it. */
+export function nextClientIp(): string {
+  ipCounter += 1;
+  return `10.${(ipCounter >> 16) & 255}.${(ipCounter >> 8) & 255}.${ipCounter & 255}`;
 }
 
 /** Boots the real application (same global setup as production). */
@@ -20,7 +31,19 @@ export async function createTestApp(): Promise<TestContext> {
   await app.init();
 
   const prisma = app.get(PrismaService);
-  return { app, prisma, http: () => request(app.getHttpServer()) };
+  const http = () => {
+    const agent = request(app.getHttpServer());
+    const withIp =
+      (verb: 'get' | 'post' | 'patch' | 'delete') => (url: string) =>
+        agent[verb](url).set('X-Forwarded-For', nextClientIp());
+    return {
+      get: withIp('get'),
+      post: withIp('post'),
+      patch: withIp('patch'),
+      delete: withIp('delete'),
+    } as Pick<Agent, 'get' | 'post' | 'patch' | 'delete'>;
+  };
+  return { app, prisma, http };
 }
 
 /** Wipes every table between suites. */

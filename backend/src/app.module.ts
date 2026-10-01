@@ -1,7 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module.js';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
+import { throttlerOptions } from './common/throttling/throttling.js';
 import { BudgetsModule } from './budgets/budgets.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { validateEnv } from './config/env.validation.js';
@@ -16,9 +19,7 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => [
-        { ttl: 60_000, limit: config.get<number>('THROTTLE_AUTH_LIMIT', 10) },
-      ],
+      useFactory: throttlerOptions,
     }),
     PrismaModule,
     AuthModule,
@@ -28,5 +29,10 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     ReportsModule,
   ],
   controllers: [RootController, HealthController],
+  providers: [
+    // Global guards run in this order: rate limit first, then authentication.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+  ],
 })
 export class AppModule {}

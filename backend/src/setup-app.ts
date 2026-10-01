@@ -16,6 +16,13 @@ export function setupApp(app: INestApplication): void {
   // The largest legit payload is ~1 KB; anything far beyond that is abuse.
   (app as NestExpressApplication).useBodyParser('json', { limit: '32kb' });
 
+  // Behind Render's proxy, trust exactly its hop so req.ip is the client IP
+  // (used as the rate-limit key) and X-Forwarded-For cannot be spoofed.
+  const proxyHops = config.get<number>('TRUST_PROXY_HOPS', 0);
+  if (proxyHops > 0) {
+    (app as NestExpressApplication).set('trust proxy', proxyHops);
+  }
+
   app.setGlobalPrefix('api', { exclude: ['/'] });
   app.use(helmet());
   app.enableCors({
