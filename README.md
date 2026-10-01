@@ -2,9 +2,19 @@
 
 [![CI](https://github.com/jpolivxdev/fintrack/actions/workflows/ci.yml/badge.svg)](https://github.com/jpolivxdev/fintrack/actions/workflows/ci.yml) [![CodeQL](https://github.com/jpolivxdev/fintrack/actions/workflows/codeql.yml/badge.svg)](https://github.com/jpolivxdev/fintrack/actions/workflows/codeql.yml)
 
-Personal finance tracker — register income and expenses, organize them by category, set monthly budgets and explore reports.
+Personal finance for one person or a couple: income and expenses across accounts and cards, installment purchases, monthly budgets, savings goals, recurring bills, automatic insights and a shared calendar. Built mobile-first (installable as a PWA), in pt-BR with amounts in R$.
 
-> 🚧 Work in progress. The backend is live; the React frontend is next.
+## Features
+
+- **Accounts and cards**: checking, credit card, cash and savings, each with its own balance, plus transfers between them (e.g. paying the card bill).
+- **Installments**: buy in up to 24x. Each installment lands in its own month, and deleting asks "only this / this and future / all".
+- **Recurring transactions**: salary, rent and subscriptions as rules (weekly, monthly, yearly) that generate entries when their date arrives.
+- **Budgets and goals**: monthly limits per category with alerts at 80%, and savings goals with contributions, pace and projected completion.
+- **Insights**: the month in plain sentences ("Lazer above normal", "budget will be exceeded at this pace", "2 bills in the next 7 days").
+- **Couples**: invite your partner with a one-time code. Finances are shared, and each entry shows who registered it.
+- **Shared calendar**: events with date and time, visible to both ("both of us") or private ("only me"), next to the month's bills.
+- **Import and export**: bank statements in OFX or CSV, parsed in the browser with a preview; re-importing never duplicates. Export goes to Excel-friendly CSV.
+- **Mobile-first**: bottom tab bar, bottom-sheet forms, iPhone safe areas, and an installable PWA that never caches financial data.
 
 **Live API docs (Swagger):** https://fintrack-api-qgr2.onrender.com/api/docs  
 **Demo account:** `demo@fintrack.dev` / `Demo@1234`  
@@ -13,7 +23,7 @@ Personal finance tracker — register income and expenses, organize them by cate
 | Part | Stack | Folder |
 | --- | --- | --- |
 | REST API | NestJS 12 · TypeScript · Prisma 7 · PostgreSQL · JWT · Swagger · Vitest | [`backend/`](backend) |
-| Web app | React · Vite · Tailwind · TanStack Query · Recharts · R3F | `frontend/` (coming soon) |
+| Web app | React 19 · Vite · Tailwind v4 · shadcn/ui · TanStack Query · Recharts · R3F · Motion · PWA | [`frontend/`](frontend) |
 
 ## Quick start (API)
 
@@ -29,17 +39,27 @@ npm run start:dev       # http://localhost:3000/api/docs
 
 With Docker instead: `docker compose up -d db` replaces `npm run db:dev`.
 
+Web app (with the API running):
+
+```bash
+cd frontend
+npm install
+npm run dev             # http://localhost:5173 — "Explorar com a conta demo"
+```
+
 See [`backend/README.md`](backend/README.md) for details.
 
 ## Security
 
 Security went beyond CRUD: each point below has automated tests ([`security.e2e-spec.ts`](backend/test/security.e2e-spec.ts), 40+ cases) running in CI. Full write-up with the reasoning behind each decision: **[SECURITY.md](SECURITY.md)**.
 
-- **BOLA/IDOR prevention**: every read *and write* is scoped by the token's user. Other users' ids get the same 404 as nonexistent ones, so ids can't be enumerated (tested across every resource × verb).
+- **BOLA/IDOR prevention**: every read *and write* is scoped by the user's household. Membership is re-checked on every request, so a removed partner loses access immediately. Other households' ids get the same 404 as nonexistent ones, so ids can't be enumerated (tested across every resource × verb). Private calendar events stay private even inside the household.
 - **Authentication**: bcrypt (cost 12), 15-min access tokens, refresh token **rotation with reuse detection** (only hashes stored), real logout, pinned HS256, deleted users' tokens rejected immediately.
 - **Rate limiting**: 5 login/register attempts per IP per 15 min plus a global per-IP limit, keyed on the real client IP behind the proxy (spoofing `X-Forwarded-For` verified not to bypass it in production).
 - **Input validation**: whitelist validation rejects unknown fields (mass assignment), with strict formats for ids, dates and enums. Found and fixed a NUL-byte input that caused 500s.
 - **Injection & XSS**: parameterized queries only (SQL-injection payloads stored as inert text). Free text is stored verbatim and escaped at render time; the API serves only JSON with `nosniff` and `CSP: default-src 'none'`.
+- **Safe sharing**: invite codes are random, single-use (claimed atomically), expire in 48 h, are stored only as hashes and are rate-limited like logins. A wrong, used or expired code gets the same error.
+- **Import/export**: CSV export neutralizes spreadsheet formula injection (`=HYPERLINK(...)`). Imports are capped (rows and body size) and deduplicated by the bank's transaction id.
 - **Hardening**: explicit Helmet/CSP/HSTS, CORS allowlist, env validated at boot (weak or placeholder secrets refused), generic 500s with a `requestId` (stack traces only in server logs).
 - **Observability**: structured JSON security logs (failed logins with masked email, 401/403/429, refresh-token reuse) with **per-IP aggregation**, which cut a 260k-request attack from ~216k log lines to 56.
 - **Supply chain**: `npm audit` 9 → 0, Dependabot, CodeQL, and CI failing on high/critical vulnerabilities.
