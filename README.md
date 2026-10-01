@@ -2,7 +2,11 @@
 
 Personal finance tracker — register income and expenses, organize them by category, set monthly budgets and explore reports.
 
-> 🚧 Work in progress. The backend is complete; the React frontend is next.
+> 🚧 Work in progress. The backend is live; the React frontend is next.
+
+**Live API docs (Swagger):** https://fintrack-api-qgr2.onrender.com/api/docs  
+**Demo account:** `demo@fintrack.dev` / `Demo@1234`  
+<sub>Hosted on Render free tier — the first request after idle can take ~50s to wake up.</sub>
 
 | Part | Stack | Folder |
 | --- | --- | --- |
