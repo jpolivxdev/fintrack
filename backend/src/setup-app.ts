@@ -123,6 +123,7 @@ export function setupSwagger(app: INestApplication): void {
       .addTag('Household', 'Shared household (e.g. a couple): members, invites, join and leave')
       .addTag('Accounts', 'Checking, savings, credit card, cash and investment accounts with balances')
       .addTag('Transfers', 'Money moving between accounts (never counted as income/expense)')
+      .addTag('Recurring', 'Rules that create transactions automatically (salary, rent, subscriptions)')
       .addTag('Categories', 'Income and expense categories')
       .addTag('Transactions', 'Income and expense records')
       .addTag('Budgets', 'Monthly spending limits per category')

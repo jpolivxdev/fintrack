@@ -246,6 +246,11 @@ export async function mergeHouseholdData(tx: Tx, fromId: string, toId: string): 
       where: { householdId: fromId, categoryId: category.id },
       data: { categoryId: targetId },
     });
+    // Rules reference categories with ON DELETE RESTRICT: re-point them first.
+    await tx.recurringRule.updateMany({
+      where: { householdId: fromId, categoryId: category.id },
+      data: { categoryId: targetId },
+    });
     const budgets = await tx.budget.findMany({ where: { householdId: fromId, categoryId: category.id } });
     for (const budget of budgets) {
       const clash = await tx.budget.findFirst({
@@ -260,6 +265,7 @@ export async function mergeHouseholdData(tx: Tx, fromId: string, toId: string): 
 
   await tx.account.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.transfer.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
+  await tx.recurringRule.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.transaction.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.budget.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
 }

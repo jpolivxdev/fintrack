@@ -92,6 +92,10 @@ export class CategoriesService {
 
   async remove(householdId: string, id: string): Promise<void> {
     const category = await this.getOwned(householdId, id);
+    const rules = await this.prisma.recurringRule.count({ where: { householdId, categoryId: id } });
+    if (rules > 0) {
+      throw new ConflictException('Category is used by recurring rules. Change or delete them first.');
+    }
     if (category._count.transactions > 0) {
       throw new ConflictException(
         `Category has ${category._count.transactions} transaction(s). Move or delete them before deleting the category.`,

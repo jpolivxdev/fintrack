@@ -175,7 +175,8 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     };
 
     for (const item of RECURRING) {
-      if (isCurrent && item.day > lastDay && item.category !== 'Salário') continue;
+      // Only what already happened this month (fixed entries also have rules for later dates).
+      if (isCurrent && item.day > lastDay) continue;
       if (item.chance !== undefined && random() > item.chance) continue;
       add(item.category, item.description, item.day, item.amount());
     }
@@ -235,6 +236,31 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     }
   }
   await prisma.transfer.createMany({ data: transfers });
+
+  const firstMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - MONTHS_OF_HISTORY, 1));
+  // Fixed-amount entries become rules; variable ones (power bill, freelance) do not.
+  const FIXED = ['Salário — Empresa XYZ', 'Aluguel', 'Internet fibra', 'Netflix', 'Spotify', 'Curso online'];
+  const rules = RECURRING.filter((r) => FIXED.includes(r.description));
+  for (const r of rules) {
+    const startDate = dateOn(firstMonth.getUTCFullYear(), firstMonth.getUTCMonth(), r.day);
+    const thisMonth = dateOn(today.getUTCFullYear(), today.getUTCMonth(), r.day);
+    const next = thisMonth > todayMidnight ? thisMonth : dateOn(today.getUTCFullYear(), today.getUTCMonth() + 1, r.day);
+    const category = categoryByName.get(r.category)!;
+    await prisma.recurringRule.create({
+      data: {
+        householdId: household.id,
+        createdById: user.id,
+        description: r.description,
+        amount: r.amount(),
+        type: category.type,
+        frequency: 'MONTHLY',
+        categoryId: category.id,
+        accountId: accounts[accountFor(r.category, r.description)].id,
+        startDate,
+        nextRunDate: next,
+      },
+    });
+  }
 
   // Budgets for the current and the previous month.
   const budgets: Prisma.BudgetCreateManyInput[] = [];
