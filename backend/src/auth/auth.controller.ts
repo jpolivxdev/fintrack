@@ -5,7 +5,10 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Req,
+  UnauthorizedException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import {
   ApiBearerAuth,
   ApiConflictResponse,
@@ -19,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { CredentialsThrottle } from '../common/throttling/throttling.js';
 import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { SecurityLogger } from '../common/logging/security-logger.js';
 import { Public } from '../common/decorators/public.decorator.js';
 import { AuthService } from './auth.service.js';
 import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto.js';
@@ -32,7 +36,10 @@ import { RegisterDto } from './dto/register.dto.js';
 })
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly securityLogger: SecurityLogger,
+  ) {}
 
   @Public()
   @CredentialsThrottle()
@@ -55,8 +62,15 @@ export class AuthController {
   @ApiOperation({ summary: 'Log in with email and password' })
   @ApiOkResponse({ type: AuthResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
-  login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
-    return this.authService.login(dto);
+  async login(@Body() dto: LoginDto, @Req() req: Request): Promise<AuthResponseDto> {
+    try {
+      return await this.authService.login(dto);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        this.securityLogger.loginFailed(req, dto.email);
+      }
+      throw error;
+    }
   }
 
   @Public()

@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
 import { DEFAULT_CATEGORIES } from '../categories/default-categories.js';
 import type { User } from '../generated/prisma/client.js';
+import { SecurityLogger } from '../common/logging/security-logger.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly securityLogger: SecurityLogger,
   ) {
     // Same cost factor as real hashes, otherwise the timing would differ.
     this.dummyHash = bcrypt.hashSync('timing-attack-guard', this.saltRounds);
@@ -116,6 +118,7 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
     if (count === 0) {
+      this.securityLogger.refreshTokenReuse(stored.userId);
       await this.revokeAllSessions(stored.userId);
       throw new UnauthorizedException(INVALID_REFRESH);
     }

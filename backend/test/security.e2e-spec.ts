@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestApp, registerUser, resetDatabase, TestContext } from './e2e/test-app.js';
@@ -460,6 +461,37 @@ describe('Security (e2e)', () => {
         message: 'request entity too large',
         error: 'Payload Too Large',
       });
+    });
+  });
+
+  describe('Security audit logging', () => {
+    it('logs failed logins with a masked email and never the password', async () => {
+      const warn = vi.spyOn(Logger.prototype, 'warn');
+      await ctx
+        .http()
+        .post('/api/auth/login')
+        .send({ email: 'someone.private@test.dev', password: 'Sup3rSecretGuess!' })
+        .expect(401);
+
+      const logged = JSON.stringify(warn.mock.calls);
+      warn.mockRestore();
+      expect(logged).toContain('login_failed');
+      expect(logged).toContain('so***@test.dev');
+      expect(logged).not.toContain('someone.private');
+      expect(logged).not.toContain('Sup3rSecretGuess!');
+    });
+
+    it('raises an error-level event when a refresh token is reused', async () => {
+      const error = vi.spyOn(Logger.prototype, 'error');
+      const session = await registerUser(ctx, 'Reuse');
+      await ctx.http().post('/api/auth/refresh').send({ refreshToken: session.refreshToken }).expect(200);
+      await ctx.http().post('/api/auth/refresh').send({ refreshToken: session.refreshToken }).expect(401);
+
+      const logged = JSON.stringify(error.mock.calls);
+      error.mockRestore();
+      expect(logged).toContain('refresh_token_reuse_detected');
+      expect(logged).toContain(session.user.id);
+      expect(logged).not.toContain(session.refreshToken);
     });
   });
 });

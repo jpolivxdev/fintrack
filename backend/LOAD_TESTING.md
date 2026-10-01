@@ -123,5 +123,13 @@ For 45 s, concurrently:
 Findings:
 1. **Rate limiting degrades gracefully.** The attacker gets cheap, fast 429s and the process never falls over.
 2. **App-level 429s still cost CPU.** At 4,300 req/s of rejected traffic, legit p95 rose from ~10 ms to ~109 ms because the event loop is busy rejecting. In a production setup, volumetric limits belong **at the edge** (Cloudflare/WAF/API gateway), before traffic reaches Node; the app keeps the fine-grained rules (login attempts per IP).
-3. **Log flooding.** The run wrote **~216k log lines in 45 s** (one per 429). An attacker could use that to fill disks, burn log quota or bury other events. Fixed: rate-limit logs are aggregated per IP and window (see SECURITY.md).
+3. **Log flooding.** The run wrote **~216k log lines in 45 s** (one per 429). An attacker could use that to fill disks, burn log quota or bury other events. **Fixed:** security events are aggregated per IP in 60 s windows (first one logged, the rest counted). Same attack afterwards:
+
+   | | Before | After aggregation |
+   | --- | ---: | ---: |
+   | Log lines | ~216,000 | **56** (one summary line reports `suppressed: 260348`) |
+   | Throughput | 4,363 req/s | **5,257 req/s** |
+   | Legit users p95 | 109 ms | **90 ms** |
+
+   Bonus: writing 200k+ synchronous log lines was itself costing CPU, so aggregation also made the API faster under attack.
 4. A first run showed 30 % errors for "legit" users. The cause was that run itself: the users had no think time (~9 req/s each) and were **rightly** throttled, and the in-memory counters carried the block into the next run. A clean run with realistic think time had 0 % errors.

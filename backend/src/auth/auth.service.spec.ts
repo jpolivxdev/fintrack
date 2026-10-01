@@ -3,7 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash } from 'node:crypto';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { SecurityLogger } from '../common/logging/security-logger.js';
 import { createPrismaMock, PrismaMock } from '../../test/utils/prisma-mock.js';
 import { DEFAULT_CATEGORIES } from '../categories/default-categories.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -28,6 +29,7 @@ describe('AuthService', () => {
   let prisma: PrismaMock;
   let jwt: JwtService;
   let service: AuthService;
+  let securityLogger: { refreshTokenReuse: ReturnType<typeof vi.fn> };
 
   const user = {
     id: '11111111-1111-1111-1111-111111111111',
@@ -41,7 +43,13 @@ describe('AuthService', () => {
   beforeEach(() => {
     prisma = createPrismaMock();
     jwt = new JwtService({});
-    service = new AuthService(prisma as unknown as PrismaService, jwt, config);
+    securityLogger = { refreshTokenReuse: vi.fn() };
+    service = new AuthService(
+      prisma as unknown as PrismaService,
+      jwt,
+      config,
+      securityLogger as unknown as SecurityLogger,
+    );
     prisma.refreshToken.create.mockResolvedValue({});
   });
 
@@ -167,6 +175,7 @@ describe('AuthService', () => {
       await expect(service.refresh(refreshToken)).rejects.toBeInstanceOf(
         UnauthorizedException,
       );
+      expect(securityLogger.refreshTokenReuse).toHaveBeenCalledWith(user.id);
       expect(prisma.refreshToken.updateMany).toHaveBeenLastCalledWith({
         where: { userId: user.id, revokedAt: null },
         data: { revokedAt: expect.any(Date) },
