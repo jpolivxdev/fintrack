@@ -3,7 +3,7 @@ import { lazy, Suspense, type ReactNode } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { AppShell } from '@/components/app-shell'
 import { Logo } from '@/components/logo'
-import { TransactionDialogProvider } from '@/components/transactions/transaction-dialog'
+import { DialogsProvider } from '@/components/dialogs/dialogs-provider'
 import { useAuth } from '@/lib/auth'
 import { MonthProvider } from '@/lib/month'
 const DashboardPage = lazy(() => import('@/pages/dashboard').then((m) => ({ default: m.DashboardPage })))
@@ -11,6 +11,11 @@ const BudgetsPage = lazy(() => import('@/pages/budgets').then((m) => ({ default:
 const CategoriesPage = lazy(() => import('@/pages/categories').then((m) => ({ default: m.CategoriesPage })))
 const LoginPage = lazy(() => import('@/pages/login').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/register').then((m) => ({ default: m.RegisterPage })))
+const AccountsPage = lazy(() => import('@/pages/accounts').then((m) => ({ default: m.AccountsPage })))
+const CalendarPage = lazy(() => import('@/pages/calendar').then((m) => ({ default: m.CalendarPage })))
+const GoalsPage = lazy(() => import('@/pages/goals').then((m) => ({ default: m.GoalsPage })))
+const RecurringPage = lazy(() => import('@/pages/recurring').then((m) => ({ default: m.RecurringPage })))
+const SettingsPage = lazy(() => import('@/pages/settings').then((m) => ({ default: m.SettingsPage })))
 const TransactionsPage = lazy(() => import('@/pages/transactions').then((m) => ({ default: m.TransactionsPage })))
 
 function FullScreenLoader() {
@@ -49,9 +54,9 @@ export default function App() {
           element={
             <RequireAuth>
               <MonthProvider>
-                <TransactionDialogProvider>
+                <DialogsProvider>
                   <AppShell />
-                </TransactionDialogProvider>
+                </DialogsProvider>
               </MonthProvider>
             </RequireAuth>
           }
@@ -60,6 +65,11 @@ export default function App() {
           <Route path="transacoes" element={<TransactionsPage />} />
           <Route path="orcamentos" element={<BudgetsPage />} />
           <Route path="categorias" element={<CategoriesPage />} />
+          <Route path="contas" element={<AccountsPage />} />
+          <Route path="metas" element={<GoalsPage />} />
+          <Route path="recorrentes" element={<RecurringPage />} />
+          <Route path="calendario" element={<CalendarPage />} />
+          <Route path="configuracoes" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

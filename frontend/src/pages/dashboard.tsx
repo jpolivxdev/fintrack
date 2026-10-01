@@ -1,16 +1,21 @@
-import { ArrowDownRight, ArrowUpRight, Plus } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
 import { Bar, CartesianGrid, ComposedChart, Line, Pie, PieChart, XAxis, YAxis, Cell } from 'recharts'
+import { AccountIcon } from '@/components/accounts/account-icon'
 import { BudgetBar } from '@/components/budget-bar'
+import { InsightList } from '@/components/dashboard/insight-list'
 import { BUDGET_STATUS } from '@/components/budget-status'
 import { CategoryIcon } from '@/components/category-icon'
 import { EmptyState } from '@/components/empty-state'
-import { useTransactionDialog } from '@/components/transactions/transaction-dialog-context'
+import { useDialogs } from '@/components/dialogs/dialogs-context'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useBudgetVsActual, useByCategory, useMonthly, useSummary, useTransactions } from '@/hooks/queries'
+import { useAccounts, useCalendar, useGoals, useInsights } from '@/hooks/queries-more'
+import { useAuth } from '@/lib/auth'
+import { formatTime, instantToLocalDate, localDateKey, toLocalIso } from '@/lib/datetime'
 import { formatMoney, formatMoneyCompact, formatPercent, formatShortDate, monthLabel } from '@/lib/format'
 import { useMonth } from '@/lib/month'
 import { cn } from '@/lib/utils'
@@ -256,7 +261,7 @@ function BudgetsSnapshot() {
       ) : budgets.length === 0 ? (
         <EmptyState text="Nenhum orçamento definido para este mês." action={<Button variant="outline" size="sm" asChild><Link to="/orcamentos">Definir orçamentos</Link></Button>} />
       ) : (
-        <ul className="grid gap-5">
+        <ul className="grid min-w-0 grid-cols-1 gap-5">
           {budgets.map((b) => (
             <li key={b.id} className="grid gap-2">
               <div className="flex items-center gap-3 text-sm">
@@ -281,7 +286,7 @@ function BudgetsSnapshot() {
 
 function RecentTransactions() {
   const { start, end } = useMonth()
-  const { openEdit } = useTransactionDialog()
+  const { editTransaction: openEdit } = useDialogs()
   const { data, isLoading } = useTransactions({ page: 1, limit: 6, startDate: start, endDate: end, sortBy: 'date', order: 'desc' })
 
   return (
@@ -328,20 +333,175 @@ function RecentTransactions() {
 }
 
 
-export function DashboardPage() {
-  const { openNew } = useTransactionDialog()
+function InsightsPanel() {
+  const { year, month } = useMonth()
+  const { data: insights, isLoading } = useInsights(year, month)
   return (
-    <div className="grid min-w-0 gap-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <h1 className="text-2xl font-semibold tracking-[-0.02em]">Visão geral</h1>
-        <Button variant="outline" onClick={() => openNew('INCOME')} className="sm:hidden">
-          <Plus className="size-4" /> Receita
-        </Button>
-      </div>
+    <Panel delay={0.05} className="xl:col-span-3">
+      <PanelTitle>O que chama atenção</PanelTitle>
+      {isLoading ? (
+        <div className="grid gap-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+      ) : !insights?.length ? (
+        <EmptyState text="Tudo tranquilo por aqui. Os destaques aparecem conforme você registra o mês." />
+      ) : (
+        <InsightList insights={insights.slice(0, 5)} />
+      )}
+    </Panel>
+  )
+}
+
+function AccountsPanel() {
+  const { data, isLoading } = useAccounts()
+  return (
+    <Panel delay={0.1} className="xl:col-span-2">
+      <PanelTitle
+        action={
+          <Button variant="link" size="sm" asChild className="px-0">
+            <Link to="/contas">Ver contas</Link>
+          </Button>
+        }
+      >
+        Onde está o dinheiro
+      </PanelTitle>
+      {isLoading ? (
+        <div className="grid gap-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+      ) : (
+        <ul className="grid min-w-0 grid-cols-1 gap-3">
+          {(data?.data ?? []).map((a) => (
+            <li key={a.id} className="flex items-center gap-3 text-sm">
+              <AccountIcon type={a.type} color={a.color} className="size-9 [&_svg]:size-4" />
+              <span className="min-w-0 flex-1 truncate font-medium">{a.name}</span>
+              <span className={cn('font-medium tabular', Number(a.balance) < 0 && 'text-expense')}>{formatMoney(a.balance)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  )
+}
+
+function UpcomingPanel() {
+  const { editEvent } = useDialogs()
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  const end = new Date(now)
+  end.setDate(end.getDate() + 8)
+  const { data, isLoading } = useCalendar(toLocalIso(now), toLocalIso(end))
+  const today = localDateKey(new Date())
+  const items = [
+    ...(data?.events ?? []).map((e) => ({ kind: 'event' as const, key: e.id, date: instantToLocalDate(e.startAt), sort: e.startAt, event: e })),
+    ...(data?.bills ?? [])
+      .filter((b) => !b.done && b.date >= today)
+      .map((b) => ({ kind: 'bill' as const, key: b.ruleId + b.date, date: b.date, sort: `${b.date}T12`, bill: b })),
+  ]
+    .sort((a, b) => a.sort.localeCompare(b.sort))
+    .slice(0, 6)
+
+  return (
+    <Panel delay={0.25} className="xl:col-span-3">
+      <PanelTitle
+        action={
+          <Button variant="link" size="sm" asChild className="px-0">
+            <Link to="/calendario">Abrir agenda</Link>
+          </Button>
+        }
+      >
+        Próximos 7 dias
+      </PanelTitle>
+      {isLoading ? (
+        <div className="grid gap-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
+      ) : items.length === 0 ? (
+        <EmptyState text="Nenhum compromisso ou conta nos próximos dias." />
+      ) : (
+        <ul className="grid min-w-0 grid-cols-1 gap-1">
+          {items.map((item) => (
+            <li key={item.key}>
+              {item.kind === 'event' ? (
+                <button type="button" onClick={() => editEvent(item.event)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/60">
+                  <span className="w-1 self-stretch rounded-full" style={{ backgroundColor: item.event.color ?? 'var(--primary)' }} />
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground first-letter:uppercase">{relativeDay(item.date, today)}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{item.event.title}</span>
+                  <span className="text-xs text-muted-foreground tabular">{item.event.allDay ? 'dia todo' : formatTime(item.event.startAt)}</span>
+                </button>
+              ) : (
+                <div className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm">
+                  <span className={cn('w-1 self-stretch rounded-full', item.bill.type === 'INCOME' ? 'bg-income' : 'bg-expense')} />
+                  <span className="w-20 shrink-0 text-xs text-muted-foreground first-letter:uppercase">{relativeDay(item.date, today)}</span>
+                  <span className="min-w-0 flex-1 truncate">{item.bill.description}</span>
+                  <span className={cn('font-medium tabular', item.bill.type === 'INCOME' && 'text-income')}>{formatMoney(item.bill.amount)}</span>
+                </div>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  )
+}
+
+function relativeDay(date: string, today: string): string {
+  if (date === today) return 'hoje'
+  const t = new Date(`${today}T12:00:00`)
+  t.setDate(t.getDate() + 1)
+  if (date === localDateKey(t)) return 'amanhã'
+  const [y, m, d] = date.split('-').map(Number)
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'short', day: 'numeric' }).format(new Date(y, m - 1, d)).replace('.', '')
+}
+
+function GoalsPanel() {
+  const { data: goals, isLoading } = useGoals()
+  return (
+    <Panel delay={0.3} className="xl:col-span-2">
+      <PanelTitle
+        action={
+          <Button variant="link" size="sm" asChild className="px-0">
+            <Link to="/metas">Ver metas</Link>
+          </Button>
+        }
+      >
+        Metas
+      </PanelTitle>
+      {isLoading ? (
+        <Skeleton className="h-20 w-full" />
+      ) : !goals?.length ? (
+        <EmptyState text="Nenhuma meta ainda." action={<Button variant="outline" size="sm" asChild><Link to="/metas">Criar meta</Link></Button>} />
+      ) : (
+        <ul className="grid min-w-0 grid-cols-1 gap-4">
+          {goals.slice(0, 3).map((g) => (
+            <li key={g.id} className="grid gap-1.5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="truncate font-medium">{g.name}</span>
+                <span className="text-xs text-muted-foreground tabular">{Math.floor(g.percent)}%</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
+                <motion.div className="h-full rounded-full" style={{ backgroundColor: g.color ?? 'var(--primary)' }} initial={{ width: 0 }} animate={{ width: `${g.percent}%` }} transition={{ duration: 0.7, ease }} />
+              </div>
+              <span className="text-xs text-muted-foreground tabular">
+                {formatMoney(g.saved)} de {formatMoney(g.targetAmount)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
+  )
+}
+
+export function DashboardPage() {
+  const { user } = useAuth()
+  return (
+    <div className="grid min-w-0 gap-5 sm:gap-6">
+      <h1 className="text-2xl font-semibold tracking-[-0.02em]">
+        {user ? `Olá, ${user.name.split(' ')[0]}` : 'Visão geral'}
+      </h1>
       <Summary />
-      <div className="grid min-w-0 gap-6 xl:grid-cols-5">
+      <div className="grid min-w-0 gap-5 sm:gap-6 xl:grid-cols-5">
+        <InsightsPanel />
+        <AccountsPanel />
         <MonthlyEvolution />
         <SpendingByCategory />
+        <UpcomingPanel />
+        <GoalsPanel />
         <BudgetsSnapshot />
         <RecentTransactions />
       </div>

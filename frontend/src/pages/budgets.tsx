@@ -9,7 +9,7 @@ import { CategoryIcon } from '@/components/category-icon'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { FormField } from '@/components/form-field'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { FormActions, ResponsiveDialog } from '@/components/responsive-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -183,17 +183,19 @@ export function BudgetsPage() {
         </ul>
       )}
 
-      <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
-        <DialogContent className="sm:max-w-sm">
-          {dialog.open && (
-            <BudgetForm
-              editing={dialog.editing}
-              takenCategoryIds={budgets.map((b) => b.category.id)}
-              onDone={() => setDialog({ open: false })}
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      <ResponsiveDialog
+        open={dialog.open}
+        onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
+        title={dialog.editing ? `Limite de ${dialog.editing.category.name}` : 'Novo orçamento'}
+        description={`${monthLabel(year, month)}. Você recebe um alerta visual a partir de 80% do limite.`}
+        className="sm:max-w-sm"
+      >
+        <BudgetForm
+          editing={dialog.editing}
+          takenCategoryIds={budgets.map((b) => b.category.id)}
+          onDone={() => setDialog({ open: false })}
+        />
+      </ResponsiveDialog>
 
       <ConfirmDialog
         open={!!toDelete}
@@ -245,10 +247,6 @@ function BudgetForm({ editing, takenCategoryIds, onDone }: { editing?: Budget; t
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-5">
-      <DialogHeader>
-        <DialogTitle>{editing ? `Limite de ${editing.category.name}` : 'Novo orçamento'}</DialogTitle>
-        <DialogDescription>{monthLabel(year, month)}. Você recebe um alerta visual a partir de 80% do limite.</DialogDescription>
-      </DialogHeader>
       {!editing && (
         <FormField id="budget-category" label="Categoria de despesa" error={errors.categoryId?.message}>
           <Controller
@@ -273,15 +271,15 @@ function BudgetForm({ editing, takenCategoryIds, onDone }: { editing?: Budget; t
         </FormField>
       )}
       <FormField id="budget-limit" label="Limite mensal (R$)" error={errors.limit?.message}>
-        <Input id="budget-limit" inputMode="decimal" placeholder="0,00" className="tabular" autoFocus {...register('limit')} />
+        <Input id="budget-limit" inputMode="decimal" placeholder="0,00" className="tabular" {...register('limit')} />
       </FormField>
-      <DialogFooter>
+      <FormActions>
         <Button type="button" variant="ghost" onClick={onDone}>Cancelar</Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="size-4 animate-spin" />}
           Salvar
         </Button>
-      </DialogFooter>
+      </FormActions>
     </form>
   )
 }

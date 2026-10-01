@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/confirm-dialog'
 import { FormField } from '@/components/form-field'
 import { SegmentedControl } from '@/components/segmented-control'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { FormActions, ResponsiveDialog } from '@/components/responsive-dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -112,13 +112,13 @@ export function CategoriesPage() {
         })}
       </div>
 
-      <Dialog open={dialog.open} onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}>
-        <DialogContent className="sm:max-w-md">
-          {dialog.open && (
-            <CategoryForm editing={dialog.editing} initialType={dialog.type} onDone={() => setDialog((d) => ({ ...d, open: false }))} />
-          )}
-        </DialogContent>
-      </Dialog>
+      <ResponsiveDialog
+        open={dialog.open}
+        onOpenChange={(open) => setDialog((d) => ({ ...d, open }))}
+        title={dialog.editing ? 'Editar categoria' : 'Nova categoria'}
+      >
+        <CategoryForm editing={dialog.editing} initialType={dialog.type} onDone={() => setDialog((d) => ({ ...d, open: false }))} />
+      </ResponsiveDialog>
 
       <ConfirmDialog
         open={!!toDelete}
@@ -175,13 +175,10 @@ function CategoryForm({ editing, initialType, onDone }: { editing?: Category; in
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate className="grid gap-5">
-      <DialogHeader>
-        <DialogTitle>{editing ? 'Editar categoria' : 'Nova categoria'}</DialogTitle>
-        <DialogDescription className="flex items-center gap-2">
-          <CategoryIcon icon={icon} color={color} size="sm" />
-          {name.trim() || 'Pré-visualização'}
-        </DialogDescription>
-      </DialogHeader>
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
+        <CategoryIcon icon={icon} color={color} size="sm" />
+        {name.trim() || 'Pré-visualização'}
+      </p>
 
       <Controller
         control={control}
@@ -203,7 +200,7 @@ function CategoryForm({ editing, initialType, onDone }: { editing?: Category; in
       />
 
       <FormField id="cat-name" label="Nome" error={errors.name?.message}>
-        <Input id="cat-name" autoFocus maxLength={50} {...register('name')} />
+        <Input id="cat-name" maxLength={50} {...register('name')} />
       </FormField>
 
       <Controller
@@ -258,13 +255,13 @@ function CategoryForm({ editing, initialType, onDone }: { editing?: Category; in
         )}
       />
 
-      <DialogFooter>
+      <FormActions>
         <Button type="button" variant="ghost" onClick={onDone}>Cancelar</Button>
         <Button type="submit" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="size-4 animate-spin" />}
           Salvar
         </Button>
-      </DialogFooter>
+      </FormActions>
     </form>
   )
 }

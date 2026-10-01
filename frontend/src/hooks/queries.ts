@@ -47,6 +47,7 @@ export interface TransactionFilters {
   limit: number
   type?: TransactionType
   categoryId?: string
+  accountId?: string
   startDate?: string
   endDate?: string
   search?: string
@@ -71,19 +72,17 @@ export interface TransactionInput {
   type: TransactionType
   date: string
   categoryId: string
+  accountId?: string
+  installments?: number
   notes?: string
 }
 
+const MONEY_VIEWS = ['transactions', 'reports', 'budgets', 'categories', 'accounts', 'transfers', 'insights', 'calendar', 'recurring', 'goals']
+
 /** Anything that changes money invalidates every view derived from it. */
-function useInvalidateMoney() {
+export function useInvalidateMoney() {
   const qc = useQueryClient()
-  return () =>
-    Promise.all([
-      qc.invalidateQueries({ queryKey: ['transactions'] }),
-      qc.invalidateQueries({ queryKey: ['reports'] }),
-      qc.invalidateQueries({ queryKey: ['budgets'] }),
-      qc.invalidateQueries({ queryKey: keys.categories }),
-    ])
+  return () => Promise.all(MONEY_VIEWS.map((key) => qc.invalidateQueries({ queryKey: [key] })))
 }
 
 export function useSaveTransaction() {
@@ -100,7 +99,8 @@ export function useSaveTransaction() {
 export function useDeleteTransaction() {
   const invalidate = useInvalidateMoney()
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/transactions/${id}`),
+    mutationFn: ({ id, scope = 'single' }: { id: string; scope?: 'single' | 'future' | 'all' }) =>
+      api.delete(`/transactions/${id}`, { params: { scope } }),
     onSuccess: invalidate,
   })
 }
