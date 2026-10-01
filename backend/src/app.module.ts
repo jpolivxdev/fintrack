@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
+import { CommonModule } from './common/common.module.js';
 import { throttlerOptions } from './common/throttling/throttling.js';
 import { BudgetsModule } from './budgets/budgets.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
@@ -21,6 +22,7 @@ import { TransactionsModule } from './transactions/transactions.module.js';
       inject: [ConfigService],
       useFactory: throttlerOptions,
     }),
+    CommonModule,
     PrismaModule,
     AuthModule,
     CategoriesModule,

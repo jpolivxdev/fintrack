@@ -1,10 +1,55 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpAdapterHost } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
-import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.js';
+import { requestIdMiddleware } from './common/logging/request-id.middleware.js';
+
+const DOCS_PATH = 'api/docs';
+
+const sharedHelmet = {
+  // HTTPS only for a year, subdomains included (browsers remember this).
+  hsts: { maxAge: 31_536_000, includeSubDomains: true, preload: false },
+  frameguard: { action: 'deny' as const }, // no clickjacking via <iframe>
+  noSniff: true, // never guess a content type (JSON stays JSON)
+  referrerPolicy: { policy: 'no-referrer' as const },
+  hidePoweredBy: true,
+};
+
+/** The API only returns JSON: nothing may load, run or embed anything. */
+const apiHelmet = helmet({
+  ...sharedHelmet,
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'none'"],
+      formAction: ["'none'"],
+    },
+  },
+});
+
+/** Swagger UI is a real page: allow only its own assets. */
+const docsHelmet = helmet({
+  ...sharedHelmet,
+  contentSecurityPolicy: {
+    useDefaults: false,
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"], // Swagger UI injects inline styles
+      imgSrc: ["'self'", 'data:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+    },
+  },
+});
 
 /**
  * Global app configuration, shared by `main.ts` and the e2e tests so both run
@@ -12,26 +57,31 @@ import { PrismaExceptionFilter } from './common/filters/prisma-exception.filter.
  */
 export function setupApp(app: INestApplication): void {
   const config = app.get(ConfigService);
+  const expressApp = app as NestExpressApplication;
+
+  // Behind Render's proxy chain, trust exactly its hops so req.ip is the
+  // client IP (the rate-limit key) and X-Forwarded-For cannot be spoofed.
+  const proxyHops = config.get<number>('TRUST_PROXY_HOPS', 0);
+  if (proxyHops > 0) expressApp.set('trust proxy', proxyHops);
+
+  app.use(requestIdMiddleware);
+  app.use((req: Request, res: Response, next: NextFunction) =>
+    req.path.startsWith(`/${DOCS_PATH}`) ? docsHelmet(req, res, next) : apiHelmet(req, res, next),
+  );
+  app.enableCors({
+    origin: parseOrigins(config.get<string>('CORS_ORIGINS')),
+    methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id', 'Retry-After-credentials', 'Retry-After-global'],
+    // Tokens travel in the Authorization header, never in cookies.
+    credentials: false,
+    maxAge: 600,
+  });
 
   // The largest legit payload is ~1 KB; anything far beyond that is abuse.
-  (app as NestExpressApplication).useBodyParser('json', { limit: '32kb' });
-
-  // Behind Render's proxy, trust exactly its hop so req.ip is the client IP
-  // (used as the rate-limit key) and X-Forwarded-For cannot be spoofed.
-  const proxyHops = config.get<number>('TRUST_PROXY_HOPS', 0);
-  if (proxyHops > 0) {
-    (app as NestExpressApplication).set('trust proxy', proxyHops);
-  }
+  expressApp.useBodyParser('json', { limit: '32kb' });
 
   app.setGlobalPrefix('api', { exclude: ['/'] });
-  app.use(helmet());
-  app.enableCors({
-    origin: (config.get<string>('CORS_ORIGINS') ?? '')
-      .split(',')
-      .map((origin) => origin.trim())
-      .filter(Boolean),
-    credentials: true,
-  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // strip unknown properties
@@ -39,10 +89,15 @@ export function setupApp(app: INestApplication): void {
       transform: true, // turn payloads into DTO instances
     }),
   );
-  app.useGlobalFilters(
-    new PrismaExceptionFilter(app.get(HttpAdapterHost).httpAdapter),
-  );
   app.enableShutdownHooks();
+}
+
+/** Explicit allowlist; an empty list means no cross-origin access at all. */
+export function parseOrigins(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 }
 
 export function setupSwagger(app: INestApplication): void {
@@ -72,7 +127,7 @@ export function setupSwagger(app: INestApplication): void {
       .addTag('Health', 'Service status')
       .build(),
   );
-  SwaggerModule.setup('api/docs', app, document, {
+  SwaggerModule.setup(DOCS_PATH, app, document, {
     customSiteTitle: 'FinTrack API Docs',
     swaggerOptions: { persistAuthorization: true },
   });

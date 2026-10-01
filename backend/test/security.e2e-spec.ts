@@ -1,5 +1,5 @@
 import { JwtService } from '@nestjs/jwt';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createTestApp, registerUser, resetDatabase, TestContext } from './e2e/test-app.js';
 
 type Session = Awaited<ReturnType<typeof registerUser>>;
@@ -393,6 +393,73 @@ describe('Security (e2e)', () => {
       for (let i = 0; i < 8; i++) {
         await ctx.http().get('/api/transactions').set('X-Forwarded-For', ip).set(alice.auth).expect(200);
       }
+    });
+  });
+
+  describe('Security headers, CORS and error responses', () => {
+    it('sends a locked-down CSP and hardening headers on API responses', async () => {
+      const res = await ctx.http().get('/api/health').expect(200);
+      expect(res.headers['content-security-policy']).toBe(
+        "default-src 'none';frame-ancestors 'none';base-uri 'none';form-action 'none'",
+      );
+      expect(res.headers['strict-transport-security']).toBe('max-age=31536000; includeSubDomains');
+      expect(res.headers['x-frame-options']).toBe('DENY');
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+      expect(res.headers['referrer-policy']).toBe('no-referrer');
+      expect(res.headers['x-powered-by']).toBeUndefined();
+      expect(res.headers['x-request-id']).toMatch(/^[\w-]{8,64}$/);
+    });
+
+    it('allows only configured origins', async () => {
+      const allowed = await ctx.http().get('/api/health').set('Origin', 'http://localhost:5173');
+      expect(allowed.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+      expect(allowed.headers['access-control-allow-credentials']).toBeUndefined();
+
+      const evil = await ctx.http().get('/api/health').set('Origin', 'https://evil.example');
+      expect(evil.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
+    it('restricts preflight methods and headers', async () => {
+      const res = await ctx
+        .http()
+        .options('/api/transactions')
+        .set('Origin', 'http://localhost:5173')
+        .set('Access-Control-Request-Method', 'PATCH');
+      expect(res.status).toBe(204);
+      expect(res.headers['access-control-allow-methods']).toBe('GET,POST,PATCH,DELETE');
+      expect(res.headers['access-control-allow-headers']).toBe('Authorization,Content-Type,X-Request-Id');
+    });
+
+    it('hides internals on unexpected errors and returns a requestId', async () => {
+      const spy = vi
+        .spyOn(ctx.prisma.transaction, 'findMany')
+        .mockRejectedValueOnce(new Error('connection to db-internal.prod:5432 failed, password=hunter2'));
+
+      const res = await ctx.http().get('/api/transactions').set(alice.auth).expect(500);
+      spy.mockRestore();
+
+      expect(res.body).toEqual({
+        statusCode: 500,
+        message: 'Internal server error',
+        requestId: res.headers['x-request-id'],
+      });
+      expect(JSON.stringify(res.body)).not.toMatch(/hunter2|db-internal|stack/);
+    });
+
+    it('keeps useful messages for client errors', async () => {
+      const notFound = await ctx
+        .http()
+        .get('/api/transactions/7f1c2b8e-3a4d-4f6b-9c1e-2d3f4a5b6c7d')
+        .set(alice.auth)
+        .expect(404);
+      expect(notFound.body).toEqual({ statusCode: 404, message: 'Transaction not found', error: 'Not Found' });
+
+      const tooLarge = await createTransaction(alice, { description: 'x'.repeat(40 * 1024) }).expect(413);
+      expect(tooLarge.body).toEqual({
+        statusCode: 413,
+        message: 'request entity too large',
+        error: 'Payload Too Large',
+      });
     });
   });
 });

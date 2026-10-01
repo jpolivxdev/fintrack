@@ -12,7 +12,7 @@ export interface TestContext {
   app: INestApplication<Server>;
   prisma: PrismaService;
   /** Requests from a fresh client IP each time (override with .set('X-Forwarded-For', ip)). */
-  http: () => Pick<Agent, 'get' | 'post' | 'patch' | 'delete'>;
+  http: () => Pick<Agent, 'get' | 'post' | 'patch' | 'delete' | 'options'>;
 }
 
 let ipCounter = 0;
@@ -34,14 +34,15 @@ export async function createTestApp(): Promise<TestContext> {
   const http = () => {
     const agent = request(app.getHttpServer());
     const withIp =
-      (verb: 'get' | 'post' | 'patch' | 'delete') => (url: string) =>
+      (verb: 'get' | 'post' | 'patch' | 'delete' | 'options') => (url: string) =>
         agent[verb](url).set('X-Forwarded-For', nextClientIp());
     return {
       get: withIp('get'),
       post: withIp('post'),
       patch: withIp('patch'),
       delete: withIp('delete'),
-    } as Pick<Agent, 'get' | 'post' | 'patch' | 'delete'>;
+      options: withIp('options'),
+    } as Pick<Agent, 'get' | 'post' | 'patch' | 'delete' | 'options'>;
   };
   return { app, prisma, http };
 }

@@ -105,5 +105,8 @@ export function validateEnv(config: Record<string, unknown>) {
   ) {
     throw new Error('Placeholder JWT secrets are not allowed in production');
   }
+  if (validated.CORS_ORIGINS?.split(',').some((o) => o.trim() === '*')) {
+    throw new Error('CORS_ORIGINS must list explicit origins, wildcards are not allowed');
+  }
   return validated;
 }
