@@ -26,6 +26,7 @@ import { CurrentUser, type AuthUser } from '../common/decorators/current-user.de
 import {
   CreateTransactionDto,
   ListTransactionsQueryDto,
+  RemoveTransactionQueryDto,
   PaginatedTransactionsDto,
   TransactionResponseDto,
   UpdateTransactionDto,
@@ -82,10 +83,17 @@ export class TransactionsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a transaction' })
+  @ApiOperation({
+    summary: 'Delete a transaction',
+    description: 'For installment purchases, `scope` can also remove the following installments or the whole purchase.',
+  })
   @ApiNoContentResponse({ description: 'Transaction deleted' })
   @ApiNotFoundResponse({ description: 'Transaction not found' })
-  remove(@CurrentUser('householdId') householdId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.transactions.remove(householdId, id);
+  async remove(
+    @CurrentUser('householdId') householdId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query() query: RemoveTransactionQueryDto,
+  ): Promise<void> {
+    await this.transactions.remove(householdId, id, query.scope);
   }
 }

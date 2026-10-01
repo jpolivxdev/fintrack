@@ -60,7 +60,7 @@ export class SummaryReportDto extends PeriodTotalsDto {
 
   @ApiProperty({
     example: '12450.75',
-    description: 'All-time accumulated balance up to the end of the month',
+    description: 'Accumulated balance at the end of the month: initial balances of all accounts + all-time net',
   })
   balance: string;
 

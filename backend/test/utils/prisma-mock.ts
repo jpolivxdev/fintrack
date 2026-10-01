@@ -29,6 +29,11 @@ export function createPrismaMock() {
     category: modelMock(),
     transaction: modelMock(),
     budget: modelMock(),
+    account: modelMock(),
+    transfer: modelMock(),
+    household: modelMock(),
+    householdMember: modelMock(),
+    householdInvite: modelMock(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   };

@@ -22,6 +22,7 @@ describe('ReportsService', () => {
   beforeEach(() => {
     prisma = createPrismaMock();
     budgets = { findAllForMonth: vi.fn() };
+    prisma.account.aggregate.mockResolvedValue({ _sum: { initialBalance: new Decimal('0') } });
     service = new ReportsService(
       prisma as unknown as PrismaService,
       budgets as unknown as BudgetsService,

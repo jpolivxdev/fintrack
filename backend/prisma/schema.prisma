@@ -19,6 +19,14 @@ enum HouseholdRole {
   MEMBER
 }
 
+enum AccountType {
+  CHECKING
+  SAVINGS
+  CREDIT_CARD
+  CASH
+  INVESTMENT
+}
+
 model User {
   id           String   @id @default(uuid()) @db.Uuid
   name         String
@@ -31,6 +39,7 @@ model User {
   membership          HouseholdMember?
   createdTransactions Transaction[]
   createdInvites      HouseholdInvite[] @relation("InviteCreator")
+  createdTransfers    Transfer[]
 
   @@map("users")
 }
@@ -65,6 +74,8 @@ model Household {
   categories   Category[]
   transactions Transaction[]
   budgets      Budget[]
+  accounts     Account[]
+  transfers    Transfer[]
 
   @@map("households")
 }
@@ -129,9 +140,14 @@ model Transaction {
   date        DateTime        @db.Date
   notes       String?
   categoryId  String          @db.Uuid
+  accountId   String          @db.Uuid
   householdId String          @db.Uuid
   /// Who registered it (shown in shared households). Kept if the user leaves.
   createdById String?         @db.Uuid
+  /// Installment purchases: N transactions sharing a group id ("3/10").
+  installmentGroupId String?  @db.Uuid
+  installmentNumber  Int?
+  installmentTotal   Int?
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
@@ -139,11 +155,15 @@ model Transaction {
   createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
   /// Restrict: a category with transactions cannot be deleted by accident.
   category  Category  @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  /// Restrict: an account with history must be archived, not deleted.
+  account   Account   @relation(fields: [accountId], references: [id], onDelete: Restrict)
 
   /// Covering index: listing (householdId + date order) and every report
   /// aggregate are answered from the index alone. See LOAD_TESTING.md.
   @@index([householdId, date, type, categoryId, amount], map: "transactions_household_date_covering_idx")
   @@index([householdId, categoryId])
+  @@index([householdId, accountId])
+  @@index([installmentGroupId])
   @@map("transactions")
 }
 
@@ -163,4 +183,53 @@ model Budget {
   @@unique([householdId, categoryId, year, month])
   @@index([householdId, year, month])
   @@map("budgets")
+}
+
+/// Where the money is: checking account, credit card, cash, savings...
+model Account {
+  id             String      @id @default(uuid()) @db.Uuid
+  householdId    String      @db.Uuid
+  name           String
+  type           AccountType
+  color          String?
+  icon           String?
+  initialBalance Decimal     @default(0) @db.Decimal(14, 2)
+  /// Archived accounts keep their history but take no new entries.
+  archived       Boolean     @default(false)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  household    Household     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  transfersOut Transfer[]    @relation("TransferFrom")
+  transfersIn  Transfer[]    @relation("TransferTo")
+
+  @@index([householdId])
+  @@map("accounts")
+}
+
+/// Money moving between two accounts of the household (e.g. paying the credit
+/// card bill). Kept apart from transactions so it never counts as income or
+/// expense in reports.
+model Transfer {
+  id            String   @id @default(uuid()) @db.Uuid
+  householdId   String   @db.Uuid
+  fromAccountId String   @db.Uuid
+  toAccountId   String   @db.Uuid
+  amount        Decimal  @db.Decimal(14, 2)
+  date          DateTime @db.Date
+  description   String?
+  createdById   String?  @db.Uuid
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fromAccount Account   @relation("TransferFrom", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccount   Account   @relation("TransferTo", fields: [toAccountId], references: [id], onDelete: Restrict)
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, date])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+  @@map("transfers")
 }

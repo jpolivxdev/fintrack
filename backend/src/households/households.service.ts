@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash, randomInt } from 'node:crypto';
 import { personalHouseholdName } from '../auth/auth.service.js';
-import { DEFAULT_CATEGORIES } from '../categories/default-categories.js';
+import { DEFAULT_ACCOUNT, DEFAULT_CATEGORIES } from '../categories/default-categories.js';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DEMO_EMAIL, DEMO_PARTNER_EMAIL } from '../seed/demo-accounts.js';
@@ -211,6 +211,7 @@ async function moveToNewPersonalHousehold(tx: Tx, userId: string, userName: stri
     data: {
       name: personalHouseholdName(userName),
       categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+      accounts: { create: { ...DEFAULT_ACCOUNT } },
     },
   });
   await tx.householdMember.update({
@@ -225,6 +226,7 @@ async function moveToNewPersonalHousehold(tx: Tx, userId: string, userName: stri
  *   target's; otherwise moved as they are.
  * - Budgets: if the target already budgets that category for that month, the
  *   target's budget wins and the incoming one is dropped.
+ * - Accounts and transfers move as they are (two "Nubank" accounts can coexist).
  */
 export async function mergeHouseholdData(tx: Tx, fromId: string, toId: string): Promise<void> {
   const [incoming, existing] = await Promise.all([
@@ -256,6 +258,8 @@ export async function mergeHouseholdData(tx: Tx, fromId: string, toId: string): 
     await tx.category.delete({ where: { id: category.id } });
   }
 
+  await tx.account.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
+  await tx.transfer.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.transaction.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.budget.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
 }

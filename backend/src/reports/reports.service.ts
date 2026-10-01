@@ -45,13 +45,14 @@ export class ReportsService {
     const prev = addMonths(year, month, -1);
     const previous = monthRange(prev.year, prev.month);
 
-    const [thisMonth, lastMonth, allTime, transactionCount] = await Promise.all([
+    const [thisMonth, lastMonth, allTime, transactionCount, initial] = await Promise.all([
       this.totalsByType({ householdId, date: { gte: current.start, lt: current.end } }),
       this.totalsByType({ householdId, date: { gte: previous.start, lt: previous.end } }),
       this.totalsByType({ householdId, date: { lt: current.end } }),
       this.prisma.transaction.count({
         where: { householdId, date: { gte: current.start, lt: current.end } },
       }),
+      this.initialBalances(householdId),
     ]);
 
     return {
@@ -60,7 +61,7 @@ export class ReportsService {
       income: formatMoney(thisMonth.income),
       expense: formatMoney(thisMonth.expense),
       net: formatMoney(thisMonth.income.minus(thisMonth.expense)),
-      balance: formatMoney(allTime.income.minus(allTime.expense)),
+      balance: formatMoney(initial.plus(allTime.income).minus(allTime.expense)),
       savingsRate: savingsRate(thisMonth.income, thisMonth.expense),
       transactionCount,
       previousMonth: {
@@ -82,7 +83,7 @@ export class ReportsService {
 
     // Grouping by month is not expressible with Prisma's groupBy, so this is
     // one parameterized SQL query (tagged template = no SQL injection).
-    const [rows, opening] = await Promise.all([
+    const [rows, opening, initial] = await Promise.all([
       this.prisma.$queryRaw<MonthlyAggregateRow[]>`
         SELECT to_char(date_trunc('month', "date"), 'YYYY-MM') AS period,
                "type"::text AS type,
@@ -94,6 +95,7 @@ export class ReportsService {
         GROUP BY 1, 2
         ORDER BY 1`,
       this.totalsByType({ householdId, date: { lt: start } }),
+      this.initialBalances(householdId),
     ]);
 
     return {
@@ -101,7 +103,7 @@ export class ReportsService {
         rows,
         first,
         query.months,
-        opening.income.minus(opening.expense),
+        initial.plus(opening.income).minus(opening.expense),
       ),
     };
   }
@@ -190,6 +192,15 @@ export class ReportsService {
   private resolveMonth(query: MonthQueryDto) {
     const now = currentYearMonth();
     return { year: query.year ?? now.year, month: query.month ?? now.month };
+  }
+
+  /** Transfers net to zero across the household; initial balances do not. */
+  private async initialBalances(householdId: string): Promise<Decimal> {
+    const { _sum } = await this.prisma.account.aggregate({
+      where: { householdId },
+      _sum: { initialBalance: true },
+    });
+    return toDecimal(_sum.initialBalance);
   }
 
   private async totalsByType(where: Prisma.TransactionWhereInput): Promise<IncomeExpense> {

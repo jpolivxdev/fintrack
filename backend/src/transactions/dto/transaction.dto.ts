@@ -1,12 +1,15 @@
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
+import { AccountSummaryDto } from '../../accounts/dto/account.dto.js';
 import {
   IsEnum,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsPositive,
   IsUUID,
   Max,
+  Min,
 } from 'class-validator';
 import { IsDateOnly, IsSafeText } from '../../common/validation/decorators.js';
 import {
@@ -42,13 +45,41 @@ export class CreateTransactionDto {
   @IsUUID()
   categoryId: string;
 
+  @ApiPropertyOptional({ format: 'uuid', description: 'Defaults to the oldest active account' })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
+
+  @ApiPropertyOptional({
+    example: 10,
+    minimum: 1,
+    maximum: 48,
+    description: 'Expenses only: split `amount` into N monthly installments (cents distributed exactly).',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(48)
+  installments?: number;
+
   @ApiPropertyOptional({ example: 'Compra do mês', maxLength: 500 })
   @IsOptional()
   @IsSafeText({ maxLength: 500, multiline: true, optional: true })
   notes?: string;
 }
 
-export class UpdateTransactionDto extends PartialType(CreateTransactionDto) {}
+export class UpdateTransactionDto extends PartialType(OmitType(CreateTransactionDto, ['installments'])) {}
+
+export class RemoveTransactionQueryDto {
+  @ApiPropertyOptional({
+    enum: ['single', 'future', 'all'],
+    default: 'single',
+    description: 'For installment purchases: just this one, this and the next ones, or the whole purchase',
+  })
+  @IsOptional()
+  @IsIn(['single', 'future', 'all'])
+  scope: 'single' | 'future' | 'all' = 'single';
+}
 
 export const TRANSACTION_SORT_FIELDS = ['date', 'amount', 'description', 'createdAt'] as const;
 export type TransactionSortField = (typeof TRANSACTION_SORT_FIELDS)[number];
@@ -63,6 +94,11 @@ export class ListTransactionsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsUUID()
   categoryId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid' })
+  @IsOptional()
+  @IsUUID()
+  accountId?: string;
 
   @ApiPropertyOptional({ example: '2026-10-01', description: 'Inclusive (YYYY-MM-DD)' })
   @IsOptional()
@@ -88,6 +124,17 @@ export class ListTransactionsQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   order: 'asc' | 'desc' = 'desc';
+}
+
+export class InstallmentInfoDto {
+  @ApiProperty({ format: 'uuid' })
+  groupId: string;
+
+  @ApiProperty({ example: 3 })
+  number: number;
+
+  @ApiProperty({ example: 10 })
+  total: number;
 }
 
 export class UserRefDto {
@@ -119,6 +166,12 @@ export class TransactionResponseDto {
 
   @ApiProperty({ type: CategorySummaryDto })
   category: CategorySummaryDto;
+
+  @ApiProperty({ type: AccountSummaryDto })
+  account: AccountSummaryDto;
+
+  @ApiProperty({ type: InstallmentInfoDto, nullable: true })
+  installment: InstallmentInfoDto | null;
 
   @ApiProperty({
     type: UserRefDto,

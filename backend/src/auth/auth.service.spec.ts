@@ -73,6 +73,7 @@ describe('AuthService', () => {
       expect(data.membership.create.role).toBe('OWNER');
       expect(household.name).toBe('Casa de Maria');
       expect(household.categories.createMany.data).toHaveLength(DEFAULT_CATEGORIES.length);
+      expect(household.accounts.create).toMatchObject({ name: 'Conta principal', type: 'CHECKING' });
 
       expect(result.user).toEqual({
         id: user.id,

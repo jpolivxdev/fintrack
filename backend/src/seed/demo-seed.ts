@@ -8,9 +8,10 @@
  * with dates relative to today.
  */
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { DEFAULT_CATEGORIES } from '../categories/default-categories.js';
 import { Prisma, PrismaClient } from '../generated/prisma/client.js';
+import { buildInstallments } from '../transactions/installments.js';
 import { DEMO_EMAIL, DEMO_PARTNER_EMAIL, DEMO_PASSWORD } from './demo-accounts.js';
 
 const MONTHS_OF_HISTORY = 6; // plus the current month
@@ -72,6 +73,18 @@ const BUDGETS: Record<string, number> = {
   Assinaturas: 80,
 };
 
+type AccountKey = 'nubank' | 'card' | 'cash' | 'reserve';
+
+/** Where each kind of entry is paid from, like a real person would. */
+function accountFor(category: string, description: string): AccountKey {
+  if (['Salário', 'Freelance', 'Investimentos'].includes(category)) return 'nubank';
+  if (['Feira', 'Padaria', 'Metrô'].includes(description)) return 'cash';
+  if (category === 'Moradia' || category === 'Educação') return 'nubank';
+  return 'card';
+}
+
+const monthKey = (d: Date) => `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+
 function dateOn(year: number, monthIndex: number, day: number) {
   return new Date(Date.UTC(year, monthIndex, day));
 }
@@ -114,6 +127,22 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
   });
   const categoryByName = new Map(household.categories.map((c) => [c.name, c]));
 
+  const createAccount = (data: Omit<Prisma.AccountUncheckedCreateInput, 'householdId'>) =>
+    prisma.account.create({ data: { ...data, householdId: household.id } });
+  const accounts: Record<AccountKey, { id: string }> = {
+    nubank: await createAccount({ name: 'Nubank', type: 'CHECKING', color: '#8b5cf6', icon: 'landmark', initialBalance: new Prisma.Decimal('2500') }),
+    card: await createAccount({ name: 'Cartão Nubank', type: 'CREDIT_CARD', color: '#a855f7', icon: 'credit-card' }),
+    cash: await createAccount({ name: 'Carteira', type: 'CASH', color: '#22c55e', icon: 'wallet', initialBalance: new Prisma.Decimal('150') }),
+    reserve: await createAccount({ name: 'Reserva de emergência', type: 'SAVINGS', color: '#3b82f6', icon: 'piggy-bank', initialBalance: new Prisma.Decimal('8000') }),
+  };
+  /** Card spending per month (up to today), paid by transfer the next month. */
+  const cardSpend = new Map<string, Prisma.Decimal>();
+  const todayMidnight = new Date(Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()));
+  const trackCard = (date: Date, amount: Prisma.Decimal) => {
+    if (date > todayMidnight) return;
+    cardSpend.set(monthKey(date), (cardSpend.get(monthKey(date)) ?? new Prisma.Decimal(0)).plus(amount));
+  };
+
   const today = new Date();
   const transactions: Prisma.TransactionCreateManyInput[] = [];
 
@@ -129,7 +158,11 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
 
     const add = (categoryName: string, description: string, day: number, amount: Prisma.Decimal) => {
       const category = categoryByName.get(categoryName)!;
+      const account = accountFor(categoryName, description);
+      const date = dateOn(year, monthIndex, Math.min(day, lastDay));
+      if (account === 'card') trackCard(date, amount);
       transactions.push({
+        accountId: accounts[account].id,
         householdId: household.id,
         // Roughly a third of the entries are registered by the partner.
         createdById: random() < 0.35 ? partner.id : user.id,
@@ -137,7 +170,7 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
         type: category.type,
         description,
         amount,
-        date: dateOn(year, monthIndex, Math.min(day, lastDay)),
+        date,
       });
     };
 
@@ -155,7 +188,53 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     }
   }
 
+  // A notebook bought in 10x on the card, 4 months ago: past installments
+  // weigh on past bills, future ones show up as "upcoming" on the card.
+  const firstInstallment = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 4, 18));
+  const groupId = randomUUID();
+  for (const part of buildInstallments(new Prisma.Decimal('3600'), 10, firstInstallment.toISOString().slice(0, 10))) {
+    const date = new Date(`${part.date}T00:00:00.000Z`);
+    trackCard(date, part.amount);
+    transactions.push({
+      householdId: household.id,
+      createdById: user.id,
+      accountId: accounts.card.id,
+      categoryId: categoryByName.get('Educação')!.id,
+      type: 'EXPENSE',
+      description: `Notebook (${part.number}/${part.total})`,
+      amount: part.amount,
+      date,
+      installmentGroupId: groupId,
+      installmentNumber: part.number,
+      installmentTotal: part.total,
+    });
+  }
+
   await prisma.transaction.createMany({ data: transactions });
+
+  // Transfers: monthly savings into the reserve, and paying last month's card bill.
+  const transfers: Prisma.TransferCreateManyInput[] = [];
+  for (let offset = MONTHS_OF_HISTORY; offset >= 0; offset--) {
+    const ref = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - offset, 1));
+    const reserveDay = dateOn(ref.getUTCFullYear(), ref.getUTCMonth(), 6);
+    if (reserveDay <= todayMidnight) {
+      transfers.push({
+        householdId: household.id, createdById: user.id, fromAccountId: accounts.nubank.id, toAccountId: accounts.reserve.id,
+        amount: new Prisma.Decimal('500'), date: reserveDay, description: 'Aporte na reserva',
+      });
+    }
+    const billDay = dateOn(ref.getUTCFullYear(), ref.getUTCMonth(), 7);
+    const previous = new Date(Date.UTC(ref.getUTCFullYear(), ref.getUTCMonth() - 1, 1));
+    const bill = cardSpend.get(monthKey(previous));
+    if (bill && billDay <= todayMidnight) {
+      transfers.push({
+        householdId: household.id, createdById: random() < 0.5 ? partner.id : user.id,
+        fromAccountId: accounts.nubank.id, toAccountId: accounts.card.id,
+        amount: bill, date: billDay, description: 'Pagamento da fatura',
+      });
+    }
+  }
+  await prisma.transfer.createMany({ data: transfers });
 
   // Budgets for the current and the previous month.
   const budgets: Prisma.BudgetCreateManyInput[] = [];
@@ -173,5 +252,5 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
   }
   await prisma.budget.createMany({ data: budgets });
 
-  return `Seeded ${DEMO_EMAIL} (+ partner) with ${household.categories.length} categories, ${transactions.length} transactions and ${budgets.length} budgets.`;
+  return `Seeded ${DEMO_EMAIL} (+ partner) with ${household.categories.length} categories, ${transactions.length} transactions, ${transfers.length} transfers and ${budgets.length} budgets.`;
 }

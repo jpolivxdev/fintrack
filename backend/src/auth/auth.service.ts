@@ -8,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomUUID } from 'node:crypto';
-import { DEFAULT_CATEGORIES } from '../categories/default-categories.js';
+import { DEFAULT_ACCOUNT, DEFAULT_CATEGORIES } from '../categories/default-categories.js';
 import type { User } from '../generated/prisma/client.js';
 import { SecurityLogger } from '../common/logging/security-logger.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -82,6 +82,7 @@ export class AuthService {
               create: {
                 name: personalHouseholdName(dto.name),
                 categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+                accounts: { create: { ...DEFAULT_ACCOUNT } },
               },
             },
           },

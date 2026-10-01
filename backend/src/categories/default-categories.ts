@@ -1,6 +1,14 @@
 import { TransactionType } from '../generated/prisma/client.js';
 
-/** Categories every new account starts with, so the app is usable right away. */
+/** Every new household starts with one account so entries have somewhere to go. */
+export const DEFAULT_ACCOUNT = {
+  name: 'Conta principal',
+  type: 'CHECKING',
+  color: '#8b5cf6',
+  icon: 'landmark',
+} as const;
+
+/** Categories every new household starts with, so the app is usable right away. */
 export const DEFAULT_CATEGORIES: ReadonlyArray<{
   name: string;
   type: TransactionType;

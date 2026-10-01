@@ -10,7 +10,7 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 import * as bcrypt from 'bcrypt';
-import { DEFAULT_CATEGORIES } from '../src/categories/default-categories.js';
+import { DEFAULT_ACCOUNT, DEFAULT_CATEGORIES } from '../src/categories/default-categories.js';
 import { Prisma, PrismaClient } from '../src/generated/prisma/client.js';
 
 const url = process.env.DATABASE_URL ?? '';
@@ -37,13 +37,17 @@ async function createUser(email: string, passwordHash: string) {
   if (old?.membership) await prisma.household.delete({ where: { id: old.membership.householdId } });
   await prisma.user.deleteMany({ where: { email } });
   const household = await prisma.household.create({
-    data: { name: email.split('@')[0], categories: { createMany: { data: [...DEFAULT_CATEGORIES] } } },
-    include: { categories: true },
+    data: {
+      name: email.split('@')[0],
+      categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
+      accounts: { create: { ...DEFAULT_ACCOUNT } },
+    },
+    include: { categories: true, accounts: true },
   });
   const user = await prisma.user.create({
     data: { name: email.split('@')[0], email, passwordHash, membership: { create: { householdId: household.id, role: 'OWNER' } } },
   });
-  return { id: user.id, householdId: household.id, categories: household.categories };
+  return { id: user.id, householdId: household.id, accountId: household.accounts[0].id, categories: household.categories };
 }
 
 async function addTransactions(
@@ -61,6 +65,7 @@ async function addTransactions(
     rows.push({
       householdId: user.householdId,
       createdById: user.id,
+      accountId: user.accountId,
       categoryId: category.id,
       type: category.type,
       description: `${category.name} #${i}`,

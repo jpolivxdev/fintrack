@@ -7,12 +7,16 @@ import { paginate, toSkipTake } from '../common/dto/pagination.dto.js';
 import { formatDateOnly, parseDateOnly } from '../common/utils/date.js';
 import { formatMoney, toDecimal } from '../common/utils/money.js';
 import type {
+  Account,
   Category,
   Prisma,
   Transaction,
   TransactionType,
 } from '../generated/prisma/client.js';
+import { randomUUID } from 'node:crypto';
+import { AccountsService } from '../accounts/accounts.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { buildInstallments } from './installments.js';
 import {
   CreateTransactionDto,
   ListTransactionsQueryDto,
@@ -23,17 +27,24 @@ import {
 
 const TX_INCLUDE = {
   category: true,
+  account: true,
   createdBy: { select: { id: true, name: true } },
 } as const;
 
 type TransactionWithCategory = Transaction & {
   category: Category;
+  account: Account;
   createdBy: { id: string; name: string } | null;
 };
 
+export type RemoveScope = 'single' | 'future' | 'all';
+
 @Injectable()
 export class TransactionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accounts: AccountsService,
+  ) {}
 
   async create(
     householdId: string,
@@ -41,17 +52,48 @@ export class TransactionsService {
     createdById?: string,
   ): Promise<TransactionResponseDto> {
     await this.assertCategoryMatches(householdId, dto.categoryId, dto.type);
+    const account = await this.accounts.resolveForEntry(householdId, dto.accountId);
+    const base = {
+      type: dto.type,
+      notes: dto.notes,
+      categoryId: dto.categoryId,
+      accountId: account.id,
+      householdId,
+      createdById,
+    };
+
+    const count = dto.installments ?? 1;
+    if (count > 1) {
+      if (dto.type !== 'EXPENSE') {
+        throw new BadRequestException('Only expenses can be split into installments');
+      }
+      // One transaction per month sharing a group id: "TV (1/10)", "TV (2/10)"...
+      const groupId = randomUUID();
+      const parts = buildInstallments(toDecimal(dto.amount), count, dto.date);
+      await this.prisma.transaction.createMany({
+        data: parts.map((p) => ({
+          ...base,
+          description: `${dto.description} (${p.number}/${p.total})`.slice(0, 120),
+          amount: p.amount,
+          date: parseDateOnly(p.date),
+          installmentGroupId: groupId,
+          installmentNumber: p.number,
+          installmentTotal: p.total,
+        })),
+      });
+      const first = await this.prisma.transaction.findFirstOrThrow({
+        where: { installmentGroupId: groupId, installmentNumber: 1 },
+        include: TX_INCLUDE,
+      });
+      return this.toResponse(first);
+    }
 
     const transaction = await this.prisma.transaction.create({
       data: {
+        ...base,
         description: dto.description,
         amount: toDecimal(dto.amount),
-        type: dto.type,
         date: parseDateOnly(dto.date),
-        notes: dto.notes,
-        categoryId: dto.categoryId,
-        householdId,
-        createdById,
       },
       include: TX_INCLUDE,
     });
@@ -117,6 +159,9 @@ export class TransactionsService {
     if (categoryId !== current.categoryId || type !== current.type) {
       await this.assertCategoryMatches(householdId, categoryId, type);
     }
+    if (dto.accountId && dto.accountId !== current.accountId) {
+      await this.accounts.resolveForEntry(householdId, dto.accountId);
+    }
 
     const updated = await this.prisma.transaction.update({
       // Scoped by owner in the write itself too (defense in depth).
@@ -128,15 +173,32 @@ export class TransactionsService {
         date: dto.date !== undefined ? parseDateOnly(dto.date) : undefined,
         notes: dto.notes,
         categoryId: dto.categoryId,
+        accountId: dto.accountId,
       },
       include: TX_INCLUDE,
     });
     return this.toResponse(updated);
   }
 
-  async remove(householdId: string, id: string): Promise<void> {
-    await this.getOwned(householdId, id);
-    await this.prisma.transaction.delete({ where: { id, householdId } });
+  /**
+   * Deletes one transaction or, for installment purchases, this and the
+   * following installments (`future`) or the whole purchase (`all`).
+   * Returns how many transactions were removed.
+   */
+  async remove(householdId: string, id: string, scope: RemoveScope = 'single'): Promise<number> {
+    const tx = await this.getOwned(householdId, id);
+    if (scope === 'single' || !tx.installmentGroupId) {
+      await this.prisma.transaction.delete({ where: { id, householdId } });
+      return 1;
+    }
+    const { count } = await this.prisma.transaction.deleteMany({
+      where: {
+        householdId,
+        installmentGroupId: tx.installmentGroupId,
+        installmentNumber: scope === 'future' ? { gte: tx.installmentNumber ?? 1 } : undefined,
+      },
+    });
+    return count;
   }
 
   private buildWhere(
@@ -150,6 +212,7 @@ export class TransactionsService {
       householdId,
       type: query.type,
       categoryId: query.categoryId,
+      accountId: query.accountId,
       date:
         query.startDate || query.endDate
           ? {
@@ -209,6 +272,16 @@ export class TransactionsService {
         color: t.category.color,
         icon: t.category.icon,
       },
+      account: {
+        id: t.account.id,
+        name: t.account.name,
+        type: t.account.type,
+        color: t.account.color,
+        icon: t.account.icon,
+      },
+      installment: t.installmentGroupId
+        ? { groupId: t.installmentGroupId, number: t.installmentNumber!, total: t.installmentTotal! }
+        : null,
       createdBy: t.createdBy,
       createdAt: t.createdAt,
       updatedAt: t.updatedAt,

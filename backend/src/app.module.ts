@@ -9,6 +9,7 @@ import { throttlerOptions } from './common/throttling/throttling.js';
 import { BudgetsModule } from './budgets/budgets.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { validateEnv } from './config/env.validation.js';
+import { AccountsModule } from './accounts/accounts.module.js';
 import { HouseholdsModule } from './households/households.module.js';
 import { HealthController } from './health/health.controller.js';
 import { RootController } from './health/root.controller.js';
@@ -30,6 +31,7 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     TransactionsModule,
     BudgetsModule,
     HouseholdsModule,
+    AccountsModule,
     ReportsModule,
   ],
   controllers: [RootController, HealthController],

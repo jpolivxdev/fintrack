@@ -1,5 +1,6 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AccountsService } from '../accounts/accounts.service.js';
 import { createPrismaMock, PrismaMock } from '../../test/utils/prisma-mock.js';
 import { Decimal } from '../common/utils/money.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -28,6 +29,12 @@ function dbTransaction(overrides: Record<string, unknown> = {}) {
     createdAt: new Date('2026-10-01T10:00:00Z'),
     updatedAt: new Date('2026-10-01T10:00:00Z'),
     category,
+    accountId: 'acc-1',
+    account: { id: 'acc-1', name: 'Conta principal', type: 'CHECKING', color: null, icon: null },
+    installmentGroupId: null,
+    installmentNumber: null,
+    installmentTotal: null,
+    createdBy: null,
     ...overrides,
   };
 }
@@ -39,10 +46,15 @@ function listQuery(overrides: Partial<ListTransactionsQueryDto> = {}) {
 describe('TransactionsService', () => {
   let prisma: PrismaMock;
   let service: TransactionsService;
+  let accounts: { resolveForEntry: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     prisma = createPrismaMock();
-    service = new TransactionsService(prisma as unknown as PrismaService);
+    accounts = { resolveForEntry: vi.fn().mockResolvedValue({ id: 'acc-1' }) };
+    service = new TransactionsService(
+      prisma as unknown as PrismaService,
+      accounts as unknown as AccountsService,
+    );
   });
 
   describe('create', () => {
