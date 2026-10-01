@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- Build stage: install everything, compile TypeScript ----------
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 WORKDIR /app
 
 # `prisma generate` (run on postinstall) reads prisma.config.ts, which needs a
@@ -18,7 +18,7 @@ RUN npm run build \
  && npm prune --omit=dev
 
 # ---------- Runtime stage: only what is needed to run ----------
-FROM node:24-slim AS runtime
+FROM node:26-slim AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
 
