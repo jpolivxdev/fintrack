@@ -266,6 +266,7 @@ export async function mergeHouseholdData(tx: Tx, fromId: string, toId: string): 
   await tx.account.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.transfer.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.recurringRule.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
+  await tx.goal.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.transaction.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.budget.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
 }

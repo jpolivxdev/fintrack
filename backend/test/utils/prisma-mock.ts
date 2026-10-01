@@ -35,6 +35,8 @@ export function createPrismaMock() {
     householdMember: modelMock(),
     householdInvite: modelMock(),
     recurringRule: modelMock(),
+    goal: modelMock(),
+    goalContribution: modelMock(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   };

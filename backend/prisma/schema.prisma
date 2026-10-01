@@ -47,6 +47,8 @@ model User {
   createdInvites      HouseholdInvite[] @relation("InviteCreator")
   createdTransfers    Transfer[]
   createdRecurring    RecurringRule[]
+  createdGoals        Goal[]
+  goalContributions   GoalContribution[]
 
   @@map("users")
 }
@@ -84,6 +86,7 @@ model Household {
   accounts     Account[]
   transfers    Transfer[]
   recurring    RecurringRule[]
+  goals        Goal[]
 
   @@map("households")
 }
@@ -279,4 +282,44 @@ model RecurringRule {
 
   @@index([householdId, active, nextRunDate])
   @@map("recurring_rules")
+}
+
+/// A savings goal ("Viagem para o Chile: R$ 12.000 até julho"). Contributions
+/// track progress like an envelope; they do not move account balances.
+model Goal {
+  id           String    @id @default(uuid()) @db.Uuid
+  householdId  String    @db.Uuid
+  name         String
+  targetAmount Decimal   @db.Decimal(14, 2)
+  targetDate   DateTime? @db.Date
+  color        String?
+  icon         String?
+  archived     Boolean   @default(false)
+  createdById  String?   @db.Uuid
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  household     Household          @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy     User?              @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  contributions GoalContribution[]
+
+  @@index([householdId])
+  @@map("goals")
+}
+
+/// Positive = money set aside, negative = withdrawn from the goal.
+model GoalContribution {
+  id          String   @id @default(uuid()) @db.Uuid
+  goalId      String   @db.Uuid
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime @db.Date
+  note        String?
+  createdById String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  goal      Goal  @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  createdBy User? @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([goalId, date])
+  @@map("goal_contributions")
 }

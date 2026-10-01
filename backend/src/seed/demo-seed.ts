@@ -238,6 +238,45 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
   await prisma.transfer.createMany({ data: transfers });
 
   const firstMonth = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - MONTHS_OF_HISTORY, 1));
+  const monthDate = (offset: number, day: number) =>
+    dateOn(today.getUTCFullYear(), today.getUTCMonth() + offset, day);
+  await prisma.goal.create({
+    data: {
+      householdId: household.id,
+      createdById: user.id,
+      name: 'Viagem para o Chile',
+      targetAmount: new Prisma.Decimal('12000'),
+      targetDate: monthDate(9, 1),
+      color: '#3b82f6',
+      icon: 'plane',
+      contributions: {
+        create: [-5, -4, -3, -2, -1].map((offset, i) => ({
+          amount: new Prisma.Decimal(i === 0 ? '2500' : '900'),
+          date: monthDate(offset, 6),
+          createdById: i % 2 ? partner.id : user.id,
+          note: i === 0 ? 'Começo da meta' : null,
+        })),
+      },
+    },
+  });
+  await prisma.goal.create({
+    data: {
+      householdId: household.id,
+      createdById: partner.id,
+      name: 'Celular novo',
+      targetAmount: new Prisma.Decimal('4500'),
+      targetDate: monthDate(3, 15),
+      color: '#ec4899',
+      icon: 'smartphone',
+      contributions: {
+        create: [
+          { amount: new Prisma.Decimal('400'), date: monthDate(-2, 20), createdById: partner.id },
+          { amount: new Prisma.Decimal('-150'), date: monthDate(-1, 3), createdById: partner.id, note: 'Imprevisto' },
+        ],
+      },
+    },
+  });
+
   // Fixed-amount entries become rules; variable ones (power bill, freelance) do not.
   const FIXED = ['Salário — Empresa XYZ', 'Aluguel', 'Internet fibra', 'Netflix', 'Spotify', 'Curso online'];
   const rules = RECURRING.filter((r) => FIXED.includes(r.description));

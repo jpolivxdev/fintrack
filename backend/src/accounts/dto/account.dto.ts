@@ -1,5 +1,4 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import { IsBoolean, IsEnum, IsNumber, IsOptional, Matches, Max, Min } from 'class-validator';
 import { IsSafeText } from '../../common/validation/decorators.js';
 import { AccountType } from '../../generated/prisma/client.js';
@@ -42,14 +41,7 @@ export class UpdateAccountDto extends PartialType(CreateAccountDto) {
   archived?: boolean;
 }
 
-export class ListAccountsQueryDto {
-  @ApiPropertyOptional({ default: false })
-  @IsOptional()
-  // Not @Type(() => Boolean): Boolean("false") is true.
-  @Transform(({ value }) => value === true || value === 'true')
-  @IsBoolean()
-  includeArchived?: boolean;
-}
+export { IncludeArchivedQueryDto as ListAccountsQueryDto } from '../../common/dto/include-archived.dto.js';
 
 export class AccountSummaryDto {
   @ApiProperty({ example: '3d8f1a2b-9c4e-4b7a-8f6d-1e2c3b4a5d6e' })
