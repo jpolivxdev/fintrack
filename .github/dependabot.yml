@@ -10,6 +10,10 @@ updates:
       # One PR for all minor/patch bumps; majors come one by one for review.
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # Types must match the runtime (Node 24 LTS); bump together with the image.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
     commit-message:
       prefix: 'chore(deps)'
 
@@ -17,6 +21,10 @@ updates:
     directory: /backend
     schedule:
       interval: weekly
+    ignore:
+      # Stay on the current Node LTS; majors are upgraded deliberately.
+      - dependency-name: node
+        update-types: ['version-update:semver-major']
     commit-message:
       prefix: 'chore(docker)'
 

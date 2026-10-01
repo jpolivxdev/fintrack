@@ -10,3 +10,7 @@ coverage
 .vercel
 *.tsbuildinfo
 backend/load-tests/results
+
+# Local AI-agent tooling (not part of the project)
+.agents/
+skills-lock.json
