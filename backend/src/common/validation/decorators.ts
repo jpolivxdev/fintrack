@@ -2,6 +2,7 @@ import { applyDecorators } from '@nestjs/common';
 import { Transform } from 'class-transformer';
 import {
   IsDateString,
+  IsISO8601,
   IsNotEmpty,
   IsString,
   Matches,
@@ -43,6 +44,20 @@ export function IsSafeText(options: {
   ];
   if (!options.optional) decorators.push(IsNotEmpty());
   return applyDecorators(...decorators);
+}
+
+/**
+ * An instant in ISO 8601 with an explicit offset ("2026-10-02T22:00:00-03:00"
+ * or "...Z"). A bare "22:00" is ambiguous across time zones, so it is refused.
+ */
+export function IsInstant() {
+  return applyDecorators(
+    IsString(),
+    Matches(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(Z|[+-]\d{2}:\d{2})$/, {
+      message: ({ property }) => `${property} must be an ISO 8601 date-time with time zone, e.g. 2026-10-02T22:00:00-03:00`,
+    }),
+    IsISO8601({ strict: true }),
+  );
 }
 
 /**

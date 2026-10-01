@@ -11,6 +11,7 @@ import { CategoriesModule } from './categories/categories.module.js';
 import { validateEnv } from './config/env.validation.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { RecurringModule } from './recurring/recurring.module.js';
+import { CalendarModule } from './calendar/calendar.module.js';
 import { GoalsModule } from './goals/goals.module.js';
 import { HouseholdsModule } from './households/households.module.js';
 import { HealthController } from './health/health.controller.js';
@@ -36,6 +37,7 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     AccountsModule,
     RecurringModule,
     GoalsModule,
+    CalendarModule,
     ReportsModule,
   ],
   controllers: [RootController, HealthController],

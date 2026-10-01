@@ -37,6 +37,7 @@ export function createPrismaMock() {
     recurringRule: modelMock(),
     goal: modelMock(),
     goalContribution: modelMock(),
+    calendarEvent: modelMock(),
     $queryRaw: vi.fn(),
     $transaction: vi.fn(),
   };

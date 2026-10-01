@@ -277,6 +277,36 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
     },
   });
 
+  // Calendar: next Friday 22:00 (Brasília, UTC-3) dinner for both, plus one
+  // private event each (the demo user cannot see Bia's).
+  const at = (daysAhead: number, hour: number, minute = 0) => {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + daysAhead, hour + 3, minute));
+    return d;
+  };
+  const daysToFriday = ((5 - today.getUTCDay() + 7) % 7) || 7;
+  await prisma.calendarEvent.createMany({
+    data: [
+      {
+        householdId: household.id, createdById: user.id, title: 'Jantar no japonês', location: 'Liberdade, São Paulo',
+        startAt: at(daysToFriday, 22), endAt: at(daysToFriday, 23, 30), visibility: 'SHARED', color: '#ec4899',
+        estimatedCost: new Prisma.Decimal('220'),
+      },
+      {
+        householdId: household.id, createdById: partner.id, title: 'Aniversário da mãe da Bia', allDay: true,
+        startAt: at(daysToFriday + 3, 0), endAt: at(daysToFriday + 3, 23, 59), visibility: 'SHARED', color: '#8b5cf6',
+        estimatedCost: new Prisma.Decimal('150'), description: 'Levar o presente',
+      },
+      {
+        householdId: household.id, createdById: user.id, title: 'Dentista', startAt: at(2, 14), endAt: at(2, 15),
+        visibility: 'PRIVATE', color: '#06b6d4',
+      },
+      {
+        householdId: household.id, createdById: partner.id, title: 'Comprar presente surpresa', startAt: at(4, 12), endAt: at(4, 13),
+        visibility: 'PRIVATE', color: '#f97316',
+      },
+    ],
+  });
+
   // Fixed-amount entries become rules; variable ones (power bill, freelance) do not.
   const FIXED = ['Salário — Empresa XYZ', 'Aluguel', 'Internet fibra', 'Netflix', 'Spotify', 'Curso online'];
   const rules = RECURRING.filter((r) => FIXED.includes(r.description));

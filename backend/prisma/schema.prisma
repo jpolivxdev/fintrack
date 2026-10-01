@@ -25,6 +25,11 @@ enum RecurrenceFrequency {
   YEARLY
 }
 
+enum EventVisibility {
+  SHARED
+  PRIVATE
+}
+
 enum AccountType {
   CHECKING
   SAVINGS
@@ -49,6 +54,7 @@ model User {
   createdRecurring    RecurringRule[]
   createdGoals        Goal[]
   goalContributions   GoalContribution[]
+  createdEvents       CalendarEvent[]
 
   @@map("users")
 }
@@ -87,6 +93,7 @@ model Household {
   transfers    Transfer[]
   recurring    RecurringRule[]
   goals        Goal[]
+  events       CalendarEvent[]
 
   @@map("households")
 }
@@ -322,4 +329,30 @@ model GoalContribution {
 
   @@index([goalId, date])
   @@map("goal_contributions")
+}
+
+/// Household calendar. SHARED events show up for every member (dinner on
+/// Friday at 22:00 for both); PRIVATE ones exist only for their creator.
+model CalendarEvent {
+  id            String          @id @default(uuid()) @db.Uuid
+  householdId   String          @db.Uuid
+  createdById   String?         @db.Uuid
+  title         String
+  description   String?
+  location      String?
+  /// Absolute instants (timestamptz); clients send ISO 8601 with offset.
+  startAt       DateTime        @db.Timestamptz(3)
+  endAt         DateTime        @db.Timestamptz(3)
+  allDay        Boolean         @default(false)
+  visibility    EventVisibility @default(SHARED)
+  color         String?
+  estimatedCost Decimal?        @db.Decimal(14, 2)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([householdId, startAt])
+  @@map("calendar_events")
 }
