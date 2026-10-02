@@ -1,48 +1,85 @@
-# FinTrack
+# 💰 FinTrack
 
-[![CI](https://github.com/jpolivxdev/fintrack/actions/workflows/ci.yml/badge.svg)](https://github.com/jpolivxdev/fintrack/actions/workflows/ci.yml) [![CodeQL](https://github.com/jpolivxdev/fintrack/actions/workflows/codeql.yml/badge.svg)](https://github.com/jpolivxdev/fintrack/actions/workflows/codeql.yml)
+<div align="center">
 
-Personal finance for one person or a couple: income and expenses across accounts and cards, installment purchases, monthly budgets, savings goals, investments compared with the CDI and inflation, recurring bills, automatic insights and a shared calendar. Built mobile-first (installable as a PWA), in pt-BR with amounts in R$.
+[![CI](https://github.com/jpolivxdev/fintrack/actions/workflows/ci.yml/badge.svg)](https://github.com/jpolivxdev/fintrack/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/jpolivxdev/fintrack/actions/workflows/codeql.yml/badge.svg)](https://github.com/jpolivxdev/fintrack/actions/workflows/codeql.yml)
 
-## Features
+**Controle financeiro pessoal (ou a dois), levado a sério.**
 
-- **Accounts and cards**: checking, credit card, cash and savings, each with its own balance, plus transfers between them (e.g. paying the card bill).
-- **Installments**: buy in up to 24x. Each installment lands in its own month, and deleting asks "only this / this and future / all".
-- **Recurring transactions**: salary, rent and subscriptions as rules (weekly, monthly, yearly) that generate entries when their date arrives.
-- **Budgets and goals**: monthly limits per category with alerts at 80%, and savings goals with contributions, pace and projected completion.
-- **Investments**: CDBs, Tesouro, stocks, crypto... Fixed income grows by itself with the official CDI and IPCA from Banco Central (% of CDI, pre-fixed, IPCA+); market-priced assets follow the values you read on the broker. See value, profit, "% of the CDI", allocation and a month-by-month chart against "100% of the CDI" and "contributions + inflation". Monthly contributions can be scheduled, and an expense you used to log as recurring can be moved to investments (past months included).
-- **Insights**: the month in plain sentences ("Lazer above normal", "budget will be exceeded at this pace", "2 bills in the next 7 days").
-- **Share with someone**: one flow, two levels. "Calendar only" shows each other's shared events while finances stay separate; "calendar + finances" joins a household (each entry shows who registered it). A received code says what it shares and who sent it before you accept, and leaving takes your accounts, history, goals and events back with you.
-- **Import and export**: bank statements in OFX or CSV, parsed in the browser with a preview; re-importing never duplicates. Export goes to Excel-friendly CSV.
-- **Home that answers "how much can I still spend?"**: the month's free money counting what is still to come (salary, bills, installments, scheduled contributions), per day, with a mood that changes when the month gets tight; numbers roll when you register something.
-- **Account recovery**: "forgot my password" with a one-time e-mailed link.
-- **Full backup**: download the whole household as one file and restore it anywhere (e.g. from a local install to the hosted app): accounts, entries with installments, recurring rules, budgets, goals, investments and events.
-- **Mobile-first**: bottom tab bar, bottom-sheet forms, iPhone safe areas, and an installable PWA that never caches financial data.
+[🌐 Demo ao vivo](https://fintrack-flax-two.vercel.app) · [📘 Documentação da API (Swagger)](https://fintrack-api-qgr2.onrender.com/api/docs) · [🔒 Segurança](SECURITY.md) · [⚡ Testes de carga](backend/LOAD_TESTING.md)
 
-**Live API docs (Swagger):** https://fintrack-api-qgr2.onrender.com/api/docs  
-**Demo account:** `demo@fintrack.dev` / `Demo@1234`  
-<sub>Hosted on Render free tier — the first request after idle can take ~50s to wake up.</sub>
+</div>
 
-| Part | Stack | Folder |
-| --- | --- | --- |
-| REST API | NestJS 12 · TypeScript · Prisma 7 · PostgreSQL · JWT · Swagger · Vitest | [`backend/`](backend) |
-| Web app | React 19 · Vite · Tailwind v4 · shadcn/ui · TanStack Query · Recharts · R3F · Motion · PWA | [`frontend/`](frontend) |
+---
 
-## Quick start (API)
+Controle financeiro pessoal (ou a dois): receitas e despesas em contas e cartões, compras parceladas, orçamentos mensais, metas de economia, investimentos comparados com o CDI e a inflação, contas recorrentes, insights automáticos e uma agenda compartilhada. Construído mobile-first (instalável como PWA), em pt-BR e com valores em R$.
+
+> 🧪 **Quer testar agora?** Acesse a [demo](https://fintrack-flax-two.vercel.app) com a conta `demo@fintrack.dev` / `Demo@1234`.
+> <sub>Hospedado no plano gratuito do Render — a primeira requisição após um tempo ocioso pode levar ~50s pra "acordar" a API.</sub>
+
+## ✨ Funcionalidades
+
+- **Contas e cartões**: conta corrente, cartão de crédito, dinheiro e poupança, cada uma com seu próprio saldo, além de transferências entre elas (ex: pagar a fatura do cartão).
+- **Parcelamento**: compras em até 24x. Cada parcela cai no seu próprio mês, e ao excluir é possível escolher "só esta / esta e as futuras / todas".
+- **Transações recorrentes**: salário, aluguel e assinaturas como regras (semanais, mensais, anuais) que geram lançamentos automaticamente na data certa.
+- **Orçamentos e metas**: limites mensais por categoria com alertas em 80%, e metas de economia com aportes, ritmo e previsão de conclusão.
+- **Investimentos**: CDBs, Tesouro, ações, cripto... A renda fixa rende sozinha com o CDI e o IPCA oficiais do Banco Central (% do CDI, prefixado, IPCA+); ativos de mercado seguem os valores informados pela corretora. Acompanhe valor, lucro, "% do CDI", alocação e um gráfico mês a mês comparando com "100% do CDI" e "aportes + inflação".
+- **Insights**: o mês resumido em frases simples ("Lazer acima do normal", "no ritmo atual o orçamento vai estourar", "2 contas nos próximos 7 dias").
+- **Compartilhar com alguém**: um fluxo, dois níveis. "Só agenda" mostra os eventos compartilhados mantendo as finanças separadas; "agenda + finanças" une um lar (cada lançamento mostra quem registrou). Um código recebido mostra o que será compartilhado e por quem antes de aceitar, e sair do grupo leva de volta contas, histórico, metas e eventos.
+- **Importação e exportação**: extratos bancários em OFX ou CSV, processados no navegador com pré-visualização; reimportar nunca duplica. Exportação em CSV compatível com Excel.
+- **Início que responde "quanto ainda posso gastar?"**: o dinheiro livre do mês considerando o que ainda vai entrar e sair (salário, contas, parcelas, aportes agendados), por dia, com um humor visual que muda quando o mês aperta.
+- **Recuperação de conta**: "esqueci minha senha" com link único enviado por e-mail.
+- **Backup completo**: baixe todo o lar (household) em um único arquivo e restaure em qualquer lugar (ex: de uma instalação local para o app hospedado): contas, lançamentos com parcelas, regras recorrentes, orçamentos, metas, investimentos e eventos.
+- **Mobile-first**: barra de navegação inferior, formulários em bottom-sheet, respeito às safe areas do iPhone e um PWA instalável que nunca armazena dados financeiros em cache.
+
+## 🧱 Stack
+
+### Backend — API REST
+
+![NestJS](https://img.shields.io/badge/NestJS_12-E0234E?style=for-the-badge&logo=nestjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma_7-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+![JWT](https://img.shields.io/badge/JWT-000000?style=for-the-badge&logo=jsonwebtokens&logoColor=white)
+![Swagger](https://img.shields.io/badge/Swagger_%2F_OpenAPI-85EA2D?style=for-the-badge&logo=swagger&logoColor=black)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+
+### Frontend — Web app
+
+![React](https://img.shields.io/badge/React_19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)
+![TailwindCSS](https://img.shields.io/badge/Tailwind_v4-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+![shadcn/ui](https://img.shields.io/badge/shadcn%2Fui-000000?style=for-the-badge&logo=shadcnui&logoColor=white)
+![TanStack Query](https://img.shields.io/badge/TanStack_Query-FF4154?style=for-the-badge&logo=reactquery&logoColor=white)
+![Recharts](https://img.shields.io/badge/Recharts-22B5BF?style=for-the-badge)
+![Three.js](https://img.shields.io/badge/React_Three_Fiber-000000?style=for-the-badge&logo=threedotjs&logoColor=white)
+![Framer Motion](https://img.shields.io/badge/Motion-0055FF?style=for-the-badge&logo=framer&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
+
+| Parte | Pasta |
+| --- | --- |
+| API REST | [`backend/`](backend) |
+| Web app | [`frontend/`](frontend) |
+
+## 🚀 Como rodar localmente
+
+**API:**
 
 ```bash
 cd backend
 cp .env.example .env
 npm install
-npm run db:dev          # terminal 1: local PostgreSQL (no Docker needed)
-npm run prisma:deploy   # terminal 2: apply migrations
-npm run prisma:seed     # demo data — demo@fintrack.dev / Demo@1234
+npm run db:dev          # terminal 1: PostgreSQL local (sem precisar de Docker)
+npm run prisma:deploy   # terminal 2: aplica as migrations
+npm run prisma:seed     # dados de demonstração — demo@fintrack.dev / Demo@1234
 npm run start:dev       # http://localhost:3000/api/docs
 ```
 
-With Docker instead: `docker compose up -d db` replaces `npm run db:dev`.
+Com Docker em vez disso: `docker compose up -d db` substitui o `npm run db:dev`.
 
-Web app (with the API running):
+**Web app** (com a API rodando):
 
 ```bash
 cd frontend
@@ -50,25 +87,25 @@ npm install
 npm run dev             # http://localhost:5173 — "Explorar com a conta demo"
 ```
 
-See [`backend/README.md`](backend/README.md) for details.
+Mais detalhes em [`backend/README.md`](backend/README.md).
 
-## Security
+## 🔒 Segurança
 
-Security went beyond CRUD: each point below has automated tests ([`security.e2e-spec.ts`](backend/test/security.e2e-spec.ts), 40+ cases) running in CI. Full write-up with the reasoning behind each decision: **[SECURITY.md](SECURITY.md)**.
+A segurança foi além do CRUD básico: cada item abaixo tem testes automatizados ([`security.e2e-spec.ts`](backend/test/security.e2e-spec.ts), mais de 40 casos) rodando no CI. Detalhamento completo com o raciocínio por trás de cada decisão: **[SECURITY.md](SECURITY.md)**.
 
-- **BOLA/IDOR prevention**: every read *and write* is scoped by the user's household. Membership is re-checked on every request, so a removed partner loses access immediately. Other households' ids get the same 404 as nonexistent ones, so ids can't be enumerated (tested across every resource × verb). Private calendar events stay private even inside the household.
-- **Authentication**: bcrypt (cost 12), 15-min access tokens, refresh token **rotation with reuse detection** (only hashes stored), real logout, pinned HS256, deleted users' tokens rejected immediately.
-- **Rate limiting**: 5 login/register attempts per IP per 15 min plus a global per-IP limit, keyed on the real client IP behind the proxy (spoofing `X-Forwarded-For` verified not to bypass it in production).
-- **Input validation**: whitelist validation rejects unknown fields (mass assignment), with strict formats for ids, dates and enums. Found and fixed a NUL-byte input that caused 500s.
-- **Injection & XSS**: parameterized queries only (SQL-injection payloads stored as inert text). Free text is stored verbatim and escaped at render time; the API serves only JSON with `nosniff` and `CSP: default-src 'none'`.
-- **Password reset done right**: 30-minute single-use link (only its hash stored, newest wins), same answer whether the e-mail exists, token in the URL fragment so it never reaches server logs, every session signed out on reset.
-- **Safe sharing**: invite codes (household and calendar) are random, single-use (claimed atomically), expire in 48 h, are stored only as hashes and are rate-limited like logins. A wrong, used or expired code gets the same error. Calendar partners see only events marked shared, never finances.
-- **External data, contained**: CDI/IPCA come from a fixed Banco Central URL (no user input in it), with a timeout, sanity bounds on every value and a database cache, so an outage only means slightly older rates.
-- **Import/export**: CSV export neutralizes spreadsheet formula injection (`=HYPERLINK(...)`). Imports are capped (rows and body size) and deduplicated by the bank's transaction id.
-- **Hardening**: explicit Helmet/CSP/HSTS, CORS allowlist, env validated at boot (weak or placeholder secrets refused), generic 500s with a `requestId` (stack traces only in server logs).
-- **Observability**: structured JSON security logs (failed logins with masked email, 401/403/429, refresh-token reuse) with **per-IP aggregation**, which cut a 260k-request attack from ~216k log lines to 56.
-- **Supply chain**: `npm audit` 9 → 0, Dependabot, CodeQL, and CI failing on high/critical vulnerabilities.
+- **Prevenção de BOLA/IDOR**: toda leitura *e escrita* é restrita ao lar (household) do usuário. A associação é checada de novo a cada requisição, então um parceiro removido perde o acesso na hora. Ids de outros lares retornam o mesmo 404 de um id inexistente, impedindo enumeração (testado em todos os recursos × verbos). Eventos privados da agenda continuam privados mesmo dentro do lar.
+- **Autenticação**: bcrypt (custo 12), tokens de acesso de 15 min, refresh token com **rotação e detecção de reuso** (só o hash é armazenado), logout de verdade, HS256 fixo, tokens de usuários excluídos rejeitados imediatamente.
+- **Rate limiting**: 5 tentativas de login/registro por IP a cada 15 min, mais um limite global por IP, identificado pelo IP real do cliente atrás do proxy (testado para confirmar que falsificar o `X-Forwarded-For` não contorna isso em produção).
+- **Validação de entrada**: validação por whitelist rejeita campos desconhecidos (mass assignment), com formatos estritos para ids, datas e enums. Um bug de entrada com byte NUL causando erros 500 foi encontrado e corrigido.
+- **Injeção e XSS**: apenas queries parametrizadas (payloads de SQL injection são armazenados como texto inerte). Texto livre é guardado literalmente e escapado na renderização; a API serve só JSON com `nosniff` e `CSP: default-src 'none'`.
+- **Redefinição de senha feita direito**: link de uso único com 30 minutos de validade (só o hash é armazenado, o mais recente vence), mesma resposta exista ou não o e-mail, token no fragmento da URL pra nunca chegar aos logs do servidor, todas as sessões são encerradas ao redefinir.
+- **Compartilhamento seguro**: códigos de convite (lar e agenda) são aleatórios, de uso único (reivindicados atomicamente), expiram em 48h, armazenados só como hash e com rate limit igual ao do login. Código errado, usado ou expirado retorna sempre o mesmo erro. Parceiros da agenda veem só os eventos marcados como compartilhados, nunca as finanças.
+- **Dados externos, contidos**: CDI/IPCA vêm de uma URL fixa do Banco Central (sem input do usuário), com timeout, limites de sanidade em cada valor e cache em banco — uma instabilidade externa só deixa as taxas um pouco desatualizadas.
+- **Importação/exportação**: a exportação CSV neutraliza injeção de fórmula de planilha (`=HYPERLINK(...)`). Importações têm limite de linhas/tamanho e deduplicação pelo id da transação bancária.
+- **Hardening**: Helmet/CSP/HSTS explícitos, allowlist de CORS, variáveis de ambiente validadas na inicialização (segredos fracos ou de exemplo são recusados), erros 500 genéricos com `requestId` (stack trace só nos logs do servidor).
+- **Observabilidade**: logs de segurança estruturados em JSON (logins falhos com e-mail mascarado, 401/403/429, reuso de refresh token) com **agregação por IP**, que reduziu um ataque de 260 mil requisições de ~216 mil linhas de log pra 56.
+- **Supply chain**: `npm audit` de 9 para 0 vulnerabilidades, Dependabot, CodeQL e CI falhando em vulnerabilidades altas/críticas.
 
-## Performance
+## ⚡ Performance
 
-Load-tested with k6 (normal load, spikes up to 1,000 VUs, report stress on 100k rows, rate-limit abuse). Highlights: 0 errors at every load level, saturation around 440 req/s per Node process with the database far from its limit, and a covering index that raised report throughput by 17%. Details, numbers and one optimization that was measured and reverted: **[LOAD_TESTING.md](backend/LOAD_TESTING.md)**.
+Testado sob carga com k6 (carga normal, picos de até 1.000 usuários virtuais, estresse de relatórios sobre 100 mil linhas, abuso de rate limit). Destaques: 0 erros em todos os níveis de carga, saturação em torno de 440 req/s por processo Node com o banco longe do limite, e um índice composto que elevou o throughput dos relatórios em 17%. Números completos e uma otimização que foi medida e revertida: **[LOAD_TESTING.md](backend/LOAD_TESTING.md)**.
