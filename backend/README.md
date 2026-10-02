@@ -24,10 +24,11 @@ src/
 ├── accounts/      accounts/cards with balances, transfers between them
 ├── categories/    CRUD + default categories for new users
 ├── transactions/  CRUD with filters and totals, installments, CSV export, statement import
-├── recurring/     recurrence rules, materialized on demand by a global interceptor
+├── recurring/     recurrence rules (income/expense or scheduled transfers), materialized on demand by a global interceptor
 ├── budgets/       monthly limits per category with progress/status
 ├── goals/         savings goals, contributions, pace and projected completion
-├── calendar/      events (shared or private) + the month's bills feed
+├── investments/   portfolio, day-by-day yield engine (CDI %, pre-fixed, IPCA+, valuations), Banco Central rates cache
+├── calendar/      events (shared or private), calendar sharing between people, the month's bills feed
 ├── insights/      monthly insights as structured data (phrased by the frontend)
 ├── reports/       summary, monthly evolution, by category, budget vs actual
 ├── seed/          demo household (two members, accounts, goals, events)

@@ -86,6 +86,7 @@ export class RecurringController {
   }
 
   @Post(':id/move-to-investment')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Turn an expense rule into scheduled contributions to an investment',
     description: 'Keeps the schedule. With convertPast, the expenses it already generated become transfers too.',

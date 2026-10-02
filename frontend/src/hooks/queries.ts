@@ -77,7 +77,7 @@ export interface TransactionInput {
   notes?: string
 }
 
-const MONEY_VIEWS = ['transactions', 'reports', 'budgets', 'categories', 'accounts', 'transfers', 'insights', 'calendar', 'recurring', 'goals']
+const MONEY_VIEWS = ['transactions', 'reports', 'budgets', 'categories', 'accounts', 'transfers', 'insights', 'calendar', 'recurring', 'goals', 'investments']
 
 /** Anything that changes money invalidates every view derived from it. */
 export function useInvalidateMoney() {

@@ -14,6 +14,7 @@ const RegisterPage = lazy(() => import('@/pages/register').then((m) => ({ defaul
 const AccountsPage = lazy(() => import('@/pages/accounts').then((m) => ({ default: m.AccountsPage })))
 const CalendarPage = lazy(() => import('@/pages/calendar').then((m) => ({ default: m.CalendarPage })))
 const GoalsPage = lazy(() => import('@/pages/goals').then((m) => ({ default: m.GoalsPage })))
+const InvestmentsPage = lazy(() => import('@/pages/investments').then((m) => ({ default: m.InvestmentsPage })))
 const RecurringPage = lazy(() => import('@/pages/recurring').then((m) => ({ default: m.RecurringPage })))
 const SettingsPage = lazy(() => import('@/pages/settings').then((m) => ({ default: m.SettingsPage })))
 const TransactionsPage = lazy(() => import('@/pages/transactions').then((m) => ({ default: m.TransactionsPage })))
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="categorias" element={<CategoriesPage />} />
           <Route path="contas" element={<AccountsPage />} />
           <Route path="metas" element={<GoalsPage />} />
+          <Route path="investimentos" element={<InvestmentsPage />} />
           <Route path="recorrentes" element={<RecurringPage />} />
           <Route path="calendario" element={<CalendarPage />} />
           <Route path="configuracoes" element={<SettingsPage />} />

@@ -7,6 +7,7 @@ import {
   Settings,
   Tags,
   Target,
+  TrendingUp,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
@@ -17,14 +18,22 @@ export interface NavItem {
   icon: LucideIcon
 }
 
+const ACCOUNTS: NavItem = { to: '/contas', label: 'Contas e cartões', icon: Wallet }
+const INVESTMENTS: NavItem = { to: '/investimentos', label: 'Investimentos', icon: TrendingUp }
+const BUDGETS: NavItem = { to: '/orcamentos', label: 'Orçamentos', icon: PiggyBank }
+const GOALS: NavItem = { to: '/metas', label: 'Metas', icon: Target }
+const RECURRING: NavItem = { to: '/recorrentes', label: 'Recorrentes', icon: Repeat }
+const CATEGORIES: NavItem = { to: '/categorias', label: 'Categorias', icon: Tags }
+
 export const NAV_MONEY: NavItem[] = [
   { to: '/', label: 'Visão geral', icon: LayoutDashboard },
   { to: '/transacoes', label: 'Transações', icon: ArrowLeftRight },
-  { to: '/contas', label: 'Contas e cartões', icon: Wallet },
-  { to: '/orcamentos', label: 'Orçamentos', icon: PiggyBank },
-  { to: '/metas', label: 'Metas', icon: Target },
-  { to: '/recorrentes', label: 'Recorrentes', icon: Repeat },
-  { to: '/categorias', label: 'Categorias', icon: Tags },
+  ACCOUNTS,
+  INVESTMENTS,
+  BUDGETS,
+  GOALS,
+  RECURRING,
+  CATEGORIES,
 ]
 
 export const NAV_LIFE: NavItem[] = [{ to: '/calendario', label: 'Calendário', icon: CalendarDays }]
@@ -32,14 +41,7 @@ export const NAV_LIFE: NavItem[] = [{ to: '/calendario', label: 'Calendário', i
 export const NAV_SETTINGS: NavItem = { to: '/configuracoes', label: 'Configurações', icon: Settings }
 
 /** Items reached from the mobile "Mais" sheet (the rest live in the tab bar). */
-export const NAV_MORE: NavItem[] = [
-  NAV_MONEY[2],
-  NAV_MONEY[3],
-  NAV_MONEY[4],
-  NAV_MONEY[5],
-  NAV_MONEY[6],
-  NAV_SETTINGS,
-]
+export const NAV_MORE: NavItem[] = [ACCOUNTS, INVESTMENTS, BUDGETS, GOALS, RECURRING, CATEGORIES, NAV_SETTINGS]
 
 export function isActive(pathname: string, to: string): boolean {
   return to === '/' ? pathname === '/' : pathname.startsWith(to)

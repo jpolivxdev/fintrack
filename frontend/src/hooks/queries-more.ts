@@ -17,7 +17,7 @@ import type {
   RecurringRule,
   TransactionType,
   Transfer,
-  UpcomingOccurrence, CalendarShares } from '@/lib/types'
+  UpcomingOccurrence, CalendarShares, InvestmentClass, InvestmentDetail, InvestmentHistoryPoint, Portfolio, YieldMode } from '@/lib/types'
 import { useInvalidateMoney } from './queries'
 
 // ---------------- Accounts & transfers ----------------
@@ -137,7 +137,9 @@ export interface RecurringInput {
   amount: number
   type: TransactionType
   frequency: RecurrenceFrequency
-  categoryId: string
+  categoryId?: string
+  /** Transfer rules (scheduled contributions): destination account. */
+  toAccountId?: string
   accountId?: string
   startDate: string
   endDate?: string
@@ -327,4 +329,82 @@ export function useHasCalendarCompany(): boolean {
   const { data: household } = useHousehold()
   const { data: shares } = useCalendarShares()
   return (household?.members.length ?? 1) > 1 || (shares?.partners.length ?? 0) > 0
+}
+
+// ---------------- Investments ----------------
+export function usePortfolio() {
+  return useQuery({ queryKey: ['investments'], queryFn: async () => (await api.get<Portfolio>('/investments')).data })
+}
+
+export function useInvestmentHistory(months: number, investmentId?: string) {
+  return useQuery({
+    queryKey: ['investments', 'history', months, investmentId ?? 'all'],
+    queryFn: async () =>
+      (await api.get<InvestmentHistoryPoint[]>('/investments/history', { params: { months, investmentId } })).data,
+  })
+}
+
+export function useInvestment(id: string | null) {
+  return useQuery({
+    queryKey: ['investments', 'detail', id],
+    queryFn: async () => (await api.get<InvestmentDetail>(`/investments/${id}`)).data,
+    enabled: !!id,
+  })
+}
+
+export interface InvestmentInput {
+  name?: string
+  accountId?: string
+  assetClass: InvestmentClass
+  yieldMode: YieldMode
+  rate?: number | null
+  startDate?: string
+  maturityDate?: string | null
+  initialAmount?: number
+  fromAccountId?: string
+  color?: string
+  archived?: boolean
+}
+
+export function useSaveInvestment() {
+  const invalidate = useInvalidateMoney()
+  return useMutation({
+    mutationFn: async ({ id, input }: { id?: string; input: Partial<InvestmentInput> }) =>
+      id
+        ? (await api.patch<InvestmentDetail>(`/investments/${id}`, input)).data
+        : (await api.post<InvestmentDetail>('/investments', input)).data,
+    onSuccess: invalidate,
+  })
+}
+
+export function useDeleteInvestment() {
+  const invalidate = useInvalidateMoney()
+  return useMutation({ mutationFn: (id: string) => api.delete(`/investments/${id}`), onSuccess: invalidate })
+}
+
+export function useAddValuation() {
+  const invalidate = useInvalidateMoney()
+  return useMutation({
+    mutationFn: async ({ id, date, value }: { id: string; date: string; value: number }) =>
+      (await api.post<InvestmentDetail>(`/investments/${id}/valuations`, { date, value })).data,
+    onSuccess: invalidate,
+  })
+}
+
+export function useRemoveValuation() {
+  const invalidate = useInvalidateMoney()
+  return useMutation({
+    mutationFn: async ({ id, valuationId }: { id: string; valuationId: string }) =>
+      (await api.delete<InvestmentDetail>(`/investments/${id}/valuations/${valuationId}`)).data,
+    onSuccess: invalidate,
+  })
+}
+
+export function useMoveRuleToInvestment() {
+  const invalidate = useInvalidateMoney()
+  return useMutation({
+    mutationFn: async ({ ruleId, investmentId, convertPast }: { ruleId: string; investmentId: string; convertPast: boolean }) =>
+      (await api.post(`/recurring/${ruleId}/move-to-investment`, { investmentId, convertPast })).data,
+    onSuccess: invalidate,
+  })
 }

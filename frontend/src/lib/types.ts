@@ -322,3 +322,81 @@ export interface CalendarShares {
   partners: CalendarPartner[]
   invitesEnabled: boolean
 }
+
+// ---------------- Investments ----------------
+export type InvestmentClass = 'FIXED_INCOME' | 'TREASURY' | 'STOCKS' | 'REITS' | 'FUNDS' | 'CRYPTO' | 'PENSION' | 'OTHER'
+export type YieldMode = 'CDI_PERCENT' | 'FIXED_RATE' | 'IPCA_PLUS' | 'MANUAL'
+
+export interface Valuation {
+  id: string
+  date: string
+  value: string
+}
+
+export interface Investment {
+  id: string
+  account: AccountSummary
+  assetClass: InvestmentClass
+  yieldMode: YieldMode
+  rate: string | null
+  startDate: string
+  maturityDate: string | null
+  archived: boolean
+  /** Estimated gross value today. */
+  value: string
+  invested: string
+  profit: string
+  profitPercent: number | null
+  percentOfCdi: number | null
+  lastValuation: Valuation | null
+  missingMarketData: boolean
+}
+
+export interface InvestmentMovement {
+  id: string
+  kind: 'CONTRIBUTION' | 'WITHDRAWAL' | 'INCOME' | 'FEE'
+  date: string
+  amount: string
+  description: string | null
+  counterpart: AccountSummary | null
+}
+
+export interface ScheduledContribution {
+  ruleId: string
+  description: string
+  amount: string
+  frequency: RecurrenceFrequency
+  nextDate: string | null
+  active: boolean
+  fromAccount: AccountSummary
+}
+
+export interface InvestmentDetail extends Investment {
+  valuations: Valuation[]
+  movements: InvestmentMovement[]
+  scheduled: ScheduledContribution[]
+}
+
+export interface Portfolio {
+  summary: {
+    value: string
+    invested: string
+    profit: string
+    profitPercent: number | null
+    cdiValue: string
+    ipcaValue: string
+    percentOfCdi: number | null
+    monthProfit: string
+  }
+  allocation: { assetClass: InvestmentClass; value: string; percent: number }[]
+  items: Investment[]
+  market: { cdiUpdatedAt: string | null; cdiAnnual: number | null; ipcaUpdatedAt: string | null; ipca12m: number | null }
+}
+
+export interface InvestmentHistoryPoint {
+  date: string
+  value: string
+  invested: string
+  cdiValue: string
+  ipcaValue: string
+}

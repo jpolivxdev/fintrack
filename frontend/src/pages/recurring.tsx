@@ -1,11 +1,12 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, MoreHorizontal, Pencil, Plus, Repeat, Trash2 } from 'lucide-react'
+import { Loader2, MoreHorizontal, Pencil, Plus, Repeat, Trash2, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { CategoryIcon } from '@/components/category-icon'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { MoveRuleDialog } from '@/components/investments/move-rule-dialog'
 import { EmptyState } from '@/components/empty-state'
 import { FormField } from '@/components/form-field'
 import { FormActions, ResponsiveDialog } from '@/components/responsive-dialog'
@@ -45,6 +46,7 @@ export function RecurringPage() {
   const remove = useDeleteRecurring()
   const [dialog, setDialog] = useState<{ open: boolean; editing?: RecurringRule }>({ open: false })
   const [toDelete, setToDelete] = useState<RecurringRule | null>(null)
+  const [toMove, setToMove] = useState<RecurringRule | null>(null)
 
   const monthlyNet = rules
     .filter((r) => r.active && r.frequency === 'MONTHLY')
@@ -143,6 +145,11 @@ export function RecurringPage() {
                           <DropdownMenuItem onSelect={() => setDialog({ open: true, editing: r })}>
                             <Pencil className="size-4" /> Editar
                           </DropdownMenuItem>
+                          {r.type === 'EXPENSE' && (
+                            <DropdownMenuItem onSelect={() => setToMove(r)}>
+                              <TrendingUp className="size-4" /> Mover para investimentos
+                            </DropdownMenuItem>
+                          )}
                           <DropdownMenuItem variant="destructive" onSelect={() => setToDelete(r)}>
                             <Trash2 className="size-4" /> Excluir
                           </DropdownMenuItem>
@@ -165,6 +172,8 @@ export function RecurringPage() {
       >
         <RecurringForm editing={dialog.editing} onDone={() => setDialog({ open: false })} />
       </ResponsiveDialog>
+
+      <MoveRuleDialog rule={toMove} onClose={() => setToMove(null)} />
 
       <ConfirmDialog
         open={!!toDelete}

@@ -359,5 +359,52 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
   }
   await prisma.budget.createMany({ data: budgets });
 
+  // Investments: the emergency reserve earns 100% of the CDI; a CDB gets a
+  // scheduled monthly contribution; stocks and bitcoin follow recorded values.
+  const monthsAgo = (n: number, day: number) => dateOn(today.getUTCFullYear(), today.getUTCMonth() - n, day);
+  await prisma.investment.create({
+    data: { householdId: household.id, accountId: accounts.reserve.id, assetClass: 'FIXED_INCOME', yieldMode: 'CDI_PERCENT', rate: new Prisma.Decimal(100), startDate: firstMonth },
+  });
+
+  const cdb = await createAccount({ name: 'CDB Banco Inter', type: 'INVESTMENT', color: '#f97316', icon: 'trending-up' });
+  await prisma.investment.create({
+    data: { householdId: household.id, accountId: cdb.id, assetClass: 'FIXED_INCOME', yieldMode: 'CDI_PERCENT', rate: new Prisma.Decimal(110), startDate: monthsAgo(MONTHS_OF_HISTORY, 10), maturityDate: monthsAgo(-24, 10) },
+  });
+  await prisma.transfer.create({
+    data: { householdId: household.id, createdById: user.id, fromAccountId: accounts.nubank.id, toAccountId: cdb.id, amount: new Prisma.Decimal(3000), date: monthsAgo(MONTHS_OF_HISTORY, 10), description: 'Aporte inicial' },
+  });
+  // Starts in the past on purpose: the past contributions are generated on the first request.
+  await prisma.recurringRule.create({
+    data: {
+      householdId: household.id, createdById: user.id, description: 'Aporte mensal no CDB', amount: new Prisma.Decimal(300), type: 'EXPENSE',
+      frequency: 'MONTHLY', accountId: accounts.nubank.id, toAccountId: cdb.id,
+      startDate: monthsAgo(MONTHS_OF_HISTORY - 1, 10), nextRunDate: monthsAgo(MONTHS_OF_HISTORY - 1, 10),
+    },
+  });
+
+  const ipca = await createAccount({ name: 'Tesouro IPCA+ 2035', type: 'INVESTMENT', color: '#3b82f6', icon: 'landmark', initialBalance: new Prisma.Decimal(2000) });
+  await prisma.investment.create({
+    data: { householdId: household.id, accountId: ipca.id, assetClass: 'TREASURY', yieldMode: 'IPCA_PLUS', rate: new Prisma.Decimal('6.2'), startDate: monthsAgo(4, 15), maturityDate: dateOn(2035, 4, 15) },
+  });
+
+  const manual = async (name: string, color: string, assetClass: 'STOCKS' | 'CRYPTO', initial: number, start: Date, values: number[]) => {
+    const account = await createAccount({ name, type: 'INVESTMENT', color, icon: 'trending-up', initialBalance: new Prisma.Decimal(initial) });
+    const investment = await prisma.investment.create({
+      data: { householdId: household.id, accountId: account.id, assetClass, yieldMode: 'MANUAL', startDate: start },
+    });
+    // One value read from the broker at each past month end.
+    await prisma.investmentValuation.createMany({
+      data: values.map((value, i) => ({
+        householdId: household.id,
+        investmentId: investment.id,
+        createdById: user.id,
+        date: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - values.length + i + 1, 0)),
+        value: new Prisma.Decimal(value),
+      })),
+    });
+  };
+  await manual('Ações (BOVA11)', '#22c55e', 'STOCKS', 3000, firstMonth, [3150, 2980, 3240, 3390, 3310, 3520]);
+  await manual('Bitcoin', '#eab308', 'CRYPTO', 1500, monthsAgo(4, 1), [1720, 1380, 1910]);
+
   return `Seeded ${DEMO_EMAIL} (+ partner) with ${household.categories.length} categories, ${transactions.length} transactions, ${transfers.length} transfers and ${budgets.length} budgets.`;
 }

@@ -24,7 +24,13 @@ const schema = z
   .refine((v) => v.fromAccountId !== v.toAccountId, { path: ['toAccountId'], message: 'Escolha outra conta' })
 type Values = z.infer<typeof schema>
 
-export function TransferForm({ onDone }: { onDone: () => void }) {
+export interface TransferDefaults {
+  fromAccountId?: string
+  toAccountId?: string
+  description?: string
+}
+
+export function TransferForm({ onDone, defaults }: { onDone: () => void; defaults?: TransferDefaults }) {
   const { data } = useAccounts()
   const accounts = data?.data ?? []
   const save = useSaveTransfer()
@@ -37,13 +43,29 @@ export function TransferForm({ onDone }: { onDone: () => void }) {
     formState: { errors, isSubmitting },
   } = useForm<Values>({
     resolver: zodResolver(schema),
-    defaultValues: { fromAccountId: '', toAccountId: '', amount: '', date: todayISO(), description: '' },
+    defaultValues: {
+      fromAccountId: defaults?.fromAccountId ?? '',
+      toAccountId: defaults?.toAccountId ?? '',
+      amount: '',
+      date: todayISO(),
+      description: defaults?.description ?? '',
+    },
   })
   const [from, to] = watch(['fromAccountId', 'toAccountId'])
 
   // Sensible defaults: checking -> credit card (paying the bill) when available.
   useEffect(() => {
-    if (accounts.length < 2 || from || to) return
+    if (accounts.length < 2) return
+    // Pre-filled side (e.g. "Aportar" on an investment): fill the other with checking.
+    if (from && !to) {
+      setValue('toAccountId', (accounts.find((a) => a.type === 'CHECKING' && a.id !== from) ?? accounts.find((a) => a.id !== from)!).id)
+      return
+    }
+    if (to && !from) {
+      setValue('fromAccountId', (accounts.find((a) => a.type === 'CHECKING' && a.id !== to) ?? accounts.find((a) => a.id !== to)!).id)
+      return
+    }
+    if (from || to) return
     const card = accounts.find((a) => a.type === 'CREDIT_CARD')
     const source = accounts.find((a) => a.type === 'CHECKING') ?? accounts[0]
     setValue('fromAccountId', source.id)
