@@ -3,6 +3,8 @@ import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { Server } from 'node:http';
 import { AppModule } from '../../src/app.module.js';
+import { MARKET_RATES_PROVIDER, type MarketRatesProvider, type RatePoint } from '../../src/investments/market-data.js';
+import { addDays } from '../../src/investments/yield-engine.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { setupApp } from '../../src/setup-app.js';
 
@@ -23,9 +25,25 @@ export function nextClientIp(): string {
   return `10.${(ipCounter >> 16) & 255}.${(ipCounter >> 8) & 255}.${ipCounter & 255}`;
 }
 
+/** Deterministic rates (no network in tests): CDI 0.05%/business day, IPCA 0.4%/month. */
+export const fakeRates: MarketRatesProvider = {
+  async fetch(series, from, to): Promise<RatePoint[]> {
+    const points: RatePoint[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      const dow = new Date(`${d}T00:00:00Z`).getUTCDay();
+      if (series === 'CDI' && dow !== 0 && dow !== 6) points.push({ date: d, rate: 0.05 });
+      if (series === 'IPCA' && d.endsWith('-01')) points.push({ date: d, rate: 0.4 });
+    }
+    return points;
+  },
+};
+
 /** Boots the real application (same global setup as production). */
 export async function createTestApp(): Promise<TestContext> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
+  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
+    .overrideProvider(MARKET_RATES_PROVIDER)
+    .useValue(fakeRates)
+    .compile();
   const app = moduleRef.createNestApplication<INestApplication<Server>>();
   setupApp(app);
   await app.init();

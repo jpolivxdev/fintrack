@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsEnum, IsNumber, IsOptional, Matches, Max, Min } from 'class-validator';
+import { AccountSummaryDto } from '../../accounts/dto/account.dto.js';
 import { CategorySummaryDto } from '../../categories/dto/category.dto.js';
 import { IsInstant, IsSafeText } from '../../common/validation/decorators.js';
 import { EventVisibility, TransactionType } from '../../generated/prisma/client.js';
@@ -117,8 +118,11 @@ export class CalendarBillDto {
   @ApiProperty({ example: '2026-10-10' })
   date: string;
 
-  @ApiProperty({ type: CategorySummaryDto })
-  category: CategorySummaryDto;
+  @ApiProperty({ type: CategorySummaryDto, nullable: true, description: 'Null for scheduled transfers' })
+  category: CategorySummaryDto | null;
+
+  @ApiProperty({ type: AccountSummaryDto, nullable: true, description: 'Destination of a scheduled transfer (e.g. an investment)' })
+  toAccount: AccountSummaryDto | null;
 
   @ApiProperty({ description: 'The transaction for this occurrence already exists' })
   done: boolean;

@@ -13,6 +13,7 @@ import { AccountsModule } from './accounts/accounts.module.js';
 import { RecurringModule } from './recurring/recurring.module.js';
 import { CalendarModule } from './calendar/calendar.module.js';
 import { InsightsModule } from './insights/insights.module.js';
+import { InvestmentsModule } from './investments/investments.module.js';
 import { GoalsModule } from './goals/goals.module.js';
 import { HouseholdsModule } from './households/households.module.js';
 import { HealthController } from './health/health.controller.js';
@@ -40,6 +41,7 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     GoalsModule,
     CalendarModule,
     InsightsModule,
+    InvestmentsModule,
     ReportsModule,
   ],
   controllers: [RootController, HealthController],

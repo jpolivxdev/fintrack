@@ -51,9 +51,9 @@ export class AccountsService {
     return this.toResponse(account, balances.get(id));
   }
 
-  async create(householdId: string, dto: CreateAccountDto): Promise<AccountResponseDto> {
+  async create(householdId: string, dto: CreateAccountDto, ownerId: string): Promise<AccountResponseDto> {
     const account = await this.prisma.account.create({
-      data: { ...dto, initialBalance: toDecimal(dto.initialBalance ?? 0), householdId },
+      data: { ...dto, initialBalance: toDecimal(dto.initialBalance ?? 0), householdId, ownerId },
       include: { _count: { select: { transactions: true } } },
     });
     return this.toResponse(account, undefined);

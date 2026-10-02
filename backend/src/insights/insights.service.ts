@@ -77,7 +77,8 @@ export class InsightsService {
       biggestExpense: biggest
         ? { description: biggest.description, amount: toDecimal(biggest.amount), date: formatDateOnly(biggest.date), categoryName: biggest.category.name }
         : null,
-      upcomingBills: upcoming.map((u) => ({ amount: toDecimal(u.amount), type: u.type })),
+      // Scheduled contributions to investments are savings, not bills.
+      upcomingBills: upcoming.filter((u) => !u.toAccount).map((u) => ({ amount: toDecimal(u.amount), type: u.type })),
       goals: goals.map((g) => ({ id: g.id, name: g.name, status: g.status, monthlyNeeded: g.monthlyNeeded, monthlyPace: g.monthlyPace, percent: g.percent })),
     });
 

@@ -5,6 +5,7 @@ import { formatMoney, toDecimal } from '../common/utils/money.js';
 import type { CalendarEvent, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { occurrencesBetween } from '../recurring/recurrence.js';
+import { CalendarSharesService } from './calendar-shares.service.js';
 import {
   CalendarBillDto,
   CalendarFeedDto,
@@ -29,17 +30,26 @@ export function lastLocalDay(to: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** What a member may see: every shared event, plus their own private ones. */
-function visibleTo(user: AuthUser): Prisma.CalendarEventWhereInput {
-  return {
+/**
+ * What a user may see: in their household, every shared event plus their own
+ * private ones; from people they share calendars with, only shared events
+ * those people created (never their household's other events or finances).
+ */
+function visibleTo(user: AuthUser, partnerIds: string[]): Prisma.CalendarEventWhereInput {
+  const household: Prisma.CalendarEventWhereInput = {
     householdId: user.householdId,
     OR: [{ visibility: 'SHARED' }, { createdById: user.id }],
   };
+  if (partnerIds.length === 0) return household;
+  return { OR: [household, { visibility: 'SHARED', createdById: { in: partnerIds } }] };
 }
 
 @Injectable()
 export class CalendarService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly shares: CalendarSharesService,
+  ) {}
 
   async feed(user: AuthUser, from: string, to: string): Promise<CalendarFeedDto> {
     const start = new Date(from);
@@ -52,7 +62,7 @@ export class CalendarService {
     const [events, bills] = await Promise.all([
       this.prisma.calendarEvent.findMany({
         // Overlap test: starts before the window ends and ends after it starts.
-        where: { ...visibleTo(user), startAt: { lt: end }, endAt: { gte: start } },
+        where: { AND: [visibleTo(user, await this.shares.partnerIds(user.id)), { startAt: { lt: end }, endAt: { gte: start } }] },
         include: { createdBy: { select: { id: true, name: true } } },
         orderBy: { startAt: 'asc' },
       }),
@@ -88,8 +98,9 @@ export class CalendarService {
   }
 
   /**
-   * Shared events can be edited by any member (it's a couple's calendar);
-   * private ones only by their creator, and others can't even see them.
+   * Shared events can be edited by anyone who sees them (household members
+   * and calendar partners); private ones only by their creator, and others
+   * can't even see them.
    */
   async update(user: AuthUser, id: string, dto: UpdateEventDto): Promise<EventResponseDto> {
     const current = await this.getVisible(user, id);
@@ -99,7 +110,7 @@ export class CalendarService {
     }
     this.assertRange(dto.startAt ?? current.startAt.toISOString(), dto.endAt ?? current.endAt.toISOString());
     const event = await this.prisma.calendarEvent.update({
-      where: { id, householdId: user.householdId },
+      where: { id: current.id },
       data: {
         title: dto.title,
         description: dto.description,
@@ -117,8 +128,8 @@ export class CalendarService {
   }
 
   async remove(user: AuthUser, id: string): Promise<void> {
-    await this.getVisible(user, id);
-    await this.prisma.calendarEvent.delete({ where: { id, householdId: user.householdId } });
+    const event = await this.getVisible(user, id);
+    await this.prisma.calendarEvent.delete({ where: { id: event.id } });
   }
 
   /** Recurring occurrences in [from, to] (dates), marked done when already created. */
@@ -127,7 +138,12 @@ export class CalendarService {
       where: { householdId },
       include: {
         category: true,
+        toAccount: true,
         transactions: {
+          where: { date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) } },
+          select: { date: true },
+        },
+        transfers: {
           where: { date: { gte: new Date(`${from}T00:00:00Z`), lte: new Date(`${to}T00:00:00Z`) } },
           select: { date: true },
         },
@@ -135,7 +151,7 @@ export class CalendarService {
     });
     return rules
       .flatMap((rule) => {
-        const done = new Set(rule.transactions.map((t) => formatDateOnly(t.date)));
+        const done = new Set([...rule.transactions, ...rule.transfers].map((t) => formatDateOnly(t.date)));
         const dates = occurrencesBetween(
           {
             startDate: formatDateOnly(rule.startDate),
@@ -154,13 +170,12 @@ export class CalendarService {
           amount: formatMoney(rule.amount),
           type: rule.type,
           date,
-          category: {
-            id: rule.category.id,
-            name: rule.category.name,
-            type: rule.category.type,
-            color: rule.category.color,
-            icon: rule.category.icon,
-          },
+          category: rule.category
+            ? { id: rule.category.id, name: rule.category.name, type: rule.category.type, color: rule.category.color, icon: rule.category.icon }
+            : null,
+          toAccount: rule.toAccount
+            ? { id: rule.toAccount.id, name: rule.toAccount.name, type: rule.toAccount.type, color: rule.toAccount.color, icon: rule.toAccount.icon }
+            : null,
           done: done.has(date),
         }));
       })
@@ -175,7 +190,7 @@ export class CalendarService {
 
   private async getVisible(user: AuthUser, id: string): Promise<EventFull> {
     const event = await this.prisma.calendarEvent.findFirst({
-      where: { id, ...visibleTo(user) },
+      where: { AND: [{ id }, visibleTo(user, await this.shares.partnerIds(user.id))] },
       include: { createdBy: { select: { id: true, name: true } } },
     });
     // Someone else's private event looks exactly like a missing one.

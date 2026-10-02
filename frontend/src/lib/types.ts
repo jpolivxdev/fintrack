@@ -190,7 +190,9 @@ export interface RecurringRule {
   amount: string
   type: TransactionType
   frequency: RecurrenceFrequency
-  category: CategorySummary
+  category: CategorySummary | null
+  /** Set for scheduled transfers (e.g. contributions to an investment). */
+  toAccount: AccountSummary | null
   account: AccountSummary
   startDate: string
   endDate: string | null
@@ -206,7 +208,8 @@ export interface UpcomingOccurrence {
   amount: string
   type: TransactionType
   date: string
-  category: CategorySummary
+  category: CategorySummary | null
+  toAccount: AccountSummary | null
 }
 
 // ---------------- Goals ----------------
@@ -306,4 +309,16 @@ export interface ImportResult {
   created: number
   skipped: number
   errors: Array<{ row: number; message: string }>
+}
+
+export interface CalendarPartner {
+  userId: string
+  name: string
+  email: string
+  since: string
+}
+
+export interface CalendarShares {
+  partners: CalendarPartner[]
+  invitesEnabled: boolean
 }

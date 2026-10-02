@@ -34,12 +34,13 @@ describe('CategoriesService', () => {
     prisma.category.findFirst.mockResolvedValue(null);
     prisma.category.create.mockResolvedValue(dbCategory());
 
-    const result = await service.create(USER, { name: 'Lazer', type: 'EXPENSE' });
+    const result = await service.create(USER, { name: 'Lazer', type: 'EXPENSE' }, USER);
 
     expect(prisma.category.create.mock.calls[0][0].data).toEqual({
       name: 'Lazer',
       type: 'EXPENSE',
       householdId: USER,
+      ownerId: USER,
     });
     expect(result.transactionCount).toBe(0);
   });
@@ -48,7 +49,7 @@ describe('CategoriesService', () => {
     prisma.category.findFirst.mockResolvedValue({ id: 'other' });
 
     await expect(
-      service.create(USER, { name: 'lazer', type: 'EXPENSE' }),
+      service.create(USER, { name: 'lazer', type: 'EXPENSE' }, USER),
     ).rejects.toBeInstanceOf(ConflictException);
     expect(prisma.category.findFirst.mock.calls[0][0].where.name).toEqual({
       equals: 'lazer',

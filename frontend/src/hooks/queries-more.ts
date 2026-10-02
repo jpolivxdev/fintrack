@@ -17,8 +17,7 @@ import type {
   RecurringRule,
   TransactionType,
   Transfer,
-  UpcomingOccurrence,
-} from '@/lib/types'
+  UpcomingOccurrence, CalendarShares } from '@/lib/types'
 import { useInvalidateMoney } from './queries'
 
 // ---------------- Accounts & transfers ----------------
@@ -286,4 +285,46 @@ export async function downloadTransactionsCsv(params: { startDate?: string; endD
   link.download = filename
   link.click()
   URL.revokeObjectURL(url)
+}
+
+// ---------------- Calendar sharing (finances stay separate) ----------------
+export function useCalendarShares() {
+  return useQuery({ queryKey: ['calendar-shares'], queryFn: async () => (await api.get<CalendarShares>('/calendar/shares')).data })
+}
+
+export function useCreateCalendarInvite() {
+  return useMutation({
+    mutationFn: async () => (await api.post<{ code: string; expiresAt: string }>('/calendar/shares/invites')).data,
+  })
+}
+
+function useCalendarSharesChanged() {
+  const qc = useQueryClient()
+  return (data: CalendarShares) => {
+    qc.setQueryData(['calendar-shares'], data)
+    void qc.invalidateQueries({ queryKey: ['calendar'] })
+  }
+}
+
+export function useJoinCalendar() {
+  const onChange = useCalendarSharesChanged()
+  return useMutation({
+    mutationFn: async (code: string) => (await api.post<CalendarShares>('/calendar/shares/join', { code })).data,
+    onSuccess: onChange,
+  })
+}
+
+export function useRemoveCalendarPartner() {
+  const onChange = useCalendarSharesChanged()
+  return useMutation({
+    mutationFn: async (userId: string) => (await api.delete<CalendarShares>(`/calendar/shares/${userId}`)).data,
+    onSuccess: onChange,
+  })
+}
+
+/** True when someone else sees this user's shared events (household or calendar partners). */
+export function useHasCalendarCompany(): boolean {
+  const { data: household } = useHousehold()
+  const { data: shares } = useCalendarShares()
+  return (household?.members.length ?? 1) > 1 || (shares?.partners.length ?? 0) > 0
 }

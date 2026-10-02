@@ -38,7 +38,9 @@ export function describeSchedule(frequency: RecurrenceFrequency, startDate: stri
 }
 
 export function RecurringPage() {
-  const { data: rules = [], isLoading } = useRecurring()
+  const { data: allRules = [], isLoading } = useRecurring()
+  // Scheduled contributions (transfers) live on the investments page.
+  const rules = allRules.filter((r) => r.category)
   const save = useSaveRecurring()
   const remove = useDeleteRecurring()
   const [dialog, setDialog] = useState<{ open: boolean; editing?: RecurringRule }>({ open: false })
@@ -119,7 +121,7 @@ export function RecurringPage() {
                 <ul className="divide-y">
                   {items.map((r) => (
                     <li key={r.id} className={cn('flex items-center gap-3 px-5 py-3', !r.active && 'opacity-60')}>
-                      <CategoryIcon icon={r.category.icon} color={r.category.color} />
+                      <CategoryIcon icon={r.category?.icon ?? null} color={r.category?.color ?? null} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate font-medium">{r.description}</p>
                         <p className="truncate text-xs text-muted-foreground">
@@ -208,7 +210,7 @@ function RecurringForm({ editing, onDone }: { editing?: RecurringRule; onDone: (
           description: editing.description,
           amount: toMoneyInput(editing.amount),
           frequency: editing.frequency,
-          categoryId: editing.category.id,
+          categoryId: editing.category?.id ?? '',
           accountId: editing.account.id,
           startDate: editing.startDate,
           endDate: editing.endDate ?? '',

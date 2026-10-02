@@ -133,7 +133,7 @@ describe('Household (e2e)', () => {
     await ctx.http().delete(`/api/household/members/${joao.user.id}`).set(outsider.auth).expect(404);
   });
 
-  it('a member who leaves loses access immediately and starts fresh', async () => {
+  it('a member who leaves loses access to the others\' data but takes their own back', async () => {
     const shared = await ctx.http().get('/api/transactions?search=Mercado').set(ana.auth).expect(200);
     const txId = shared.body.data[0].id;
     await ctx.http().get(`/api/transactions/${txId}`).set(joao.auth).expect(200);
@@ -143,11 +143,49 @@ describe('Household (e2e)', () => {
 
     // Same access token, but membership is checked on every request.
     await ctx.http().get(`/api/transactions/${txId}`).set(joao.auth).expect(404);
-    const fresh = await ctx.http().get('/api/transactions').set(joao.auth).expect(200);
-    expect(fresh.body.meta.total).toBe(0);
-    // Shared data stays with the household.
+
+    // João leaves with his account and what was on it...
+    const mine = await ctx.http().get('/api/transactions?startDate=2026-09-01&endDate=2026-09-30').set(joao.auth).expect(200);
+    expect(mine.body.data.map((t: { description: string }) => t.description).sort()).toEqual(['Feira do João', 'Jogo novo']);
+    const accounts = await ctx.http().get('/api/accounts').set(joao.auth).expect(200);
+    expect(accounts.body.data).toHaveLength(1);
+    // ...his own category moves; the one Ana still uses is copied by name.
+    const cats = await ctx.http().get('/api/categories?type=EXPENSE&limit=100').set(joao.auth).expect(200);
+    const names = cats.body.data.map((c: { name: string }) => c.name);
+    expect(names).toContain('Games');
+    expect(names.filter((n: string) => n === 'Alimentação')).toHaveLength(1);
+    // Ana keeps hers, untouched.
     const kept = await ctx.http().get('/api/transactions?startDate=2026-09-01&endDate=2026-09-30').set(ana.auth).expect(200);
-    expect(kept.body.meta.total).toBe(3);
+    expect(kept.body.data.map((t: { description: string }) => t.description)).toEqual(['Mercado da Ana']);
+    const anaCats = await ctx.http().get('/api/categories?type=EXPENSE&limit=100').set(ana.auth).expect(200);
+    expect(anaCats.body.data.map((c: { name: string }) => c.name)).not.toContain('Games');
+  });
+
+  it('a transfer between the two sides becomes income/expense on each side when someone leaves', async () => {
+    const { body: invite } = await ctx.http().post('/api/household/invites').set(ana.auth).expect(201);
+    await ctx.http().post('/api/household/join').set(joao.auth).send({ code: invite.code }).expect(200);
+    const { body: accounts } = await ctx.http().get('/api/accounts').set(ana.auth).expect(200);
+    // Accounts are listed oldest first: Ana registered before João.
+    const [anaAccount, joaoAccount] = accounts.data as Array<{ id: string }>;
+    await ctx
+      .http()
+      .post('/api/transfers')
+      .set(ana.auth)
+      .send({ fromAccountId: anaAccount.id, toAccountId: joaoAccount.id, amount: 80, date: '2026-09-15', description: 'Pix pro João' })
+      .expect(201);
+    const before = (await ctx.http().get('/api/accounts').set(ana.auth).expect(200)).body.data as Array<{ id: string; balance: string }>;
+
+    await ctx.http().post('/api/household/leave').set(joao.auth).expect(200);
+
+    const anaAfter = (await ctx.http().get('/api/accounts').set(ana.auth).expect(200)).body.data as Array<{ id: string; balance: string }>;
+    const joaoAfter = (await ctx.http().get('/api/accounts').set(joao.auth).expect(200)).body.data as Array<{ id: string; balance: string }>;
+    // Balances are exactly what they were, each on its own side.
+    expect(anaAfter.find((a) => a.id === anaAccount.id)!.balance).toBe(before.find((a) => a.id === anaAccount.id)!.balance);
+    expect(joaoAfter.find((a) => a.id === joaoAccount.id)!.balance).toBe(before.find((a) => a.id === joaoAccount.id)!.balance);
+    const anaTransfers = await ctx.http().get('/api/transfers').set(ana.auth).expect(200);
+    expect(anaTransfers.body.data).toHaveLength(0);
+    const pix = await ctx.http().get('/api/transactions?search=Pix').set(joao.auth).expect(200);
+    expect(pix.body.data[0]).toMatchObject({ type: 'INCOME', amount: '80.00' });
   });
 
   it('the only member cannot leave', async () => {

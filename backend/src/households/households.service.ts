@@ -206,18 +206,150 @@ function isDemoEmail(email: string): boolean {
   return email === DEMO_EMAIL || email === DEMO_PARTNER_EMAIL;
 }
 
+/**
+ * Takes a member out of a shared household into a new personal one, with what
+ * is theirs: the accounts they brought (and everything on them), the goals and
+ * events they created, and the categories they use. Nothing is deleted.
+ */
 async function moveToNewPersonalHousehold(tx: Tx, userId: string, userName: string): Promise<void> {
-  const household = await tx.household.create({
-    data: {
-      name: personalHouseholdName(userName),
-      categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
-      accounts: { create: { ...DEFAULT_ACCOUNT } },
-    },
-  });
+  const membership = await tx.householdMember.findUniqueOrThrow({ where: { userId } });
+  const household = await tx.household.create({ data: { name: personalHouseholdName(userName) } });
   await tx.householdMember.update({
     where: { userId },
     data: { householdId: household.id, role: 'OWNER', joinedAt: new Date() },
   });
+  await splitHouseholdData(tx, userId, membership.householdId, household.id);
+
+  // Nobody starts without the basics.
+  const existing = await tx.category.findMany({ where: { householdId: household.id }, select: { name: true, type: true } });
+  const has = new Set(existing.map((c) => `${c.type}:${c.name.trim().toLowerCase()}`));
+  const missing = DEFAULT_CATEGORIES.filter((c) => !has.has(`${c.type}:${c.name.toLowerCase()}`));
+  if (missing.length) {
+    await tx.category.createMany({ data: missing.map((c) => ({ ...c, householdId: household.id, ownerId: userId })) });
+  }
+  if ((await tx.account.count({ where: { householdId: household.id, archived: false } })) === 0) {
+    await tx.account.create({ data: { ...DEFAULT_ACCOUNT, householdId: household.id, ownerId: userId } });
+  }
+}
+
+/** Finds a category by name and type in a household, creating it if needed. */
+async function categoryIn(
+  tx: Tx,
+  householdId: string,
+  like: { name: string; type: 'INCOME' | 'EXPENSE'; color?: string | null; icon?: string | null },
+  ownerId: string | null,
+): Promise<string> {
+  const found = await tx.category.findFirst({
+    where: { householdId, type: like.type, name: { equals: like.name, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (found) return found.id;
+  const created = await tx.category.create({
+    data: { householdId, ownerId, name: like.name, type: like.type, color: like.color ?? null, icon: like.icon ?? null },
+  });
+  return created.id;
+}
+
+export async function splitHouseholdData(tx: Tx, userId: string, fromId: string, toId: string): Promise<void> {
+  // 1. Accounts the member brought, with their whole history.
+  const accounts = await tx.account.findMany({ where: { householdId: fromId, ownerId: userId }, select: { id: true } });
+  const mine = accounts.map((a) => a.id);
+  const isMine = (id: string | null) => !!id && mine.includes(id);
+
+  if (mine.length) {
+    await tx.account.updateMany({ where: { id: { in: mine } }, data: { householdId: toId } });
+    await tx.transaction.updateMany({ where: { householdId: fromId, accountId: { in: mine } }, data: { householdId: toId } });
+    const investments = await tx.investment.findMany({ where: { accountId: { in: mine } }, select: { id: true } });
+    await tx.investment.updateMany({ where: { accountId: { in: mine } }, data: { householdId: toId } });
+    await tx.investmentValuation.updateMany({
+      where: { investmentId: { in: investments.map((i) => i.id) } },
+      data: { householdId: toId },
+    });
+
+    // Transfers: inside the member's accounts they move; between the member and
+    // someone else they become a plain income/expense on each side, so both
+    // balances stay right without one household pointing at the other's account.
+    const transfers = await tx.transfer.findMany({
+      where: { householdId: fromId, OR: [{ fromAccountId: { in: mine } }, { toAccountId: { in: mine } }] },
+    });
+    for (const t of transfers) {
+      if (isMine(t.fromAccountId) && isMine(t.toAccountId)) {
+        await tx.transfer.update({ where: { id: t.id }, data: { householdId: toId } });
+        continue;
+      }
+      const outHousehold = isMine(t.fromAccountId) ? toId : fromId;
+      const inHousehold = isMine(t.toAccountId) ? toId : fromId;
+      const base = { amount: t.amount, date: t.date, description: t.description ?? 'Transferência', createdById: t.createdById };
+      await tx.transaction.create({
+        data: {
+          ...base,
+          householdId: outHousehold,
+          accountId: t.fromAccountId,
+          type: 'EXPENSE',
+          categoryId: await categoryIn(tx, outHousehold, { name: 'Transferências', type: 'EXPENSE', icon: 'repeat' }, null),
+        },
+      });
+      await tx.transaction.create({
+        data: {
+          ...base,
+          householdId: inHousehold,
+          accountId: t.toAccountId,
+          type: 'INCOME',
+          categoryId: await categoryIn(tx, inHousehold, { name: 'Transferências', type: 'INCOME', icon: 'repeat' }, null),
+        },
+      });
+      await tx.transfer.delete({ where: { id: t.id } });
+    }
+
+    // Rules go with the paying account. A transfer rule between the two sides
+    // is paused: its transfers would cross households.
+    const rules = await tx.recurringRule.findMany({
+      where: { householdId: fromId, OR: [{ accountId: { in: mine } }, { toAccountId: { in: mine } }] },
+    });
+    for (const r of rules) {
+      const crosses = !!r.toAccountId && isMine(r.accountId) !== isMine(r.toAccountId);
+      await tx.recurringRule.update({
+        where: { id: r.id },
+        data: { householdId: isMine(r.accountId) ? toId : fromId, active: crosses ? false : r.active },
+      });
+    }
+  }
+
+  // 2. What the member created that doesn't hang on an account.
+  await tx.goal.updateMany({ where: { householdId: fromId, createdById: userId }, data: { householdId: toId } });
+  await tx.calendarEvent.updateMany({ where: { householdId: fromId, createdById: userId }, data: { householdId: toId } });
+
+  // 3. Categories. Moved entries still point at the shared household's
+  // categories: the member's own unused-by-others ones move along; anything
+  // still used on the other side is copied by name instead.
+  const used = new Set<string>();
+  for (const t of await tx.transaction.findMany({ where: { householdId: toId }, select: { categoryId: true } })) used.add(t.categoryId);
+  for (const r of await tx.recurringRule.findMany({ where: { householdId: toId }, select: { categoryId: true } })) {
+    if (r.categoryId) used.add(r.categoryId);
+  }
+  const owned = await tx.category.findMany({ where: { householdId: fromId, ownerId: userId }, select: { id: true } });
+  const candidates = await tx.category.findMany({
+    where: { householdId: fromId, id: { in: [...new Set([...used, ...owned.map((c) => c.id)])] } },
+  });
+
+  const copies: typeof candidates = [];
+  for (const c of candidates) {
+    const stillUsedThere =
+      (await tx.transaction.count({ where: { householdId: fromId, categoryId: c.id } })) +
+      (await tx.recurringRule.count({ where: { householdId: fromId, categoryId: c.id } }));
+    if (c.ownerId === userId && stillUsedThere === 0) {
+      await tx.category.update({ where: { id: c.id }, data: { householdId: toId } });
+      await tx.budget.updateMany({ where: { householdId: fromId, categoryId: c.id }, data: { householdId: toId } });
+    } else if (used.has(c.id)) {
+      copies.push(c);
+    }
+  }
+  // Copies after moves, so a moved category with the same name is reused.
+  for (const c of copies) {
+    const target = await categoryIn(tx, toId, c, userId);
+    await tx.transaction.updateMany({ where: { householdId: toId, categoryId: c.id }, data: { categoryId: target } });
+    await tx.recurringRule.updateMany({ where: { householdId: toId, categoryId: c.id }, data: { categoryId: target } });
+  }
 }
 
 /**
@@ -267,6 +399,8 @@ export async function mergeHouseholdData(tx: Tx, fromId: string, toId: string): 
   await tx.transfer.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.recurringRule.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.goal.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
+  await tx.investment.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
+  await tx.investmentValuation.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   // Private events stay private: visibility is per creator, not per household.
   await tx.calendarEvent.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });
   await tx.transaction.updateMany({ where: { householdId: fromId }, data: { householdId: toId } });

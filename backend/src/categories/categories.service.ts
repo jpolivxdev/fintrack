@@ -29,10 +29,10 @@ const WITH_COUNT = {
 export class CategoriesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(householdId: string, dto: CreateCategoryDto): Promise<CategoryResponseDto> {
+  async create(householdId: string, dto: CreateCategoryDto, ownerId: string): Promise<CategoryResponseDto> {
     await this.assertNameAvailable(householdId, dto.name, dto.type);
     const category = await this.prisma.category.create({
-      data: { ...dto, householdId },
+      data: { ...dto, householdId, ownerId },
       include: WITH_COUNT,
     });
     return this.toResponse(category);

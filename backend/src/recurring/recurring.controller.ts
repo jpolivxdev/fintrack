@@ -26,6 +26,7 @@ import { CurrentUser, type AuthUser } from '../common/decorators/current-user.de
 import {
   CreateRecurringDto,
   ListRecurringQueryDto,
+  MoveToInvestmentDto,
   RecurringResponseDto,
   UpcomingOccurrenceDto,
   UpcomingQueryDto,
@@ -82,6 +83,21 @@ export class RecurringController {
     @Body() dto: UpdateRecurringDto,
   ) {
     return this.recurring.update(householdId, id, dto);
+  }
+
+  @Post(':id/move-to-investment')
+  @ApiOperation({
+    summary: 'Turn an expense rule into scheduled contributions to an investment',
+    description: 'Keeps the schedule. With convertPast, the expenses it already generated become transfers too.',
+  })
+  @ApiOkResponse({ type: RecurringResponseDto })
+  @ApiNotFoundResponse({ description: 'Rule or investment not found' })
+  moveToInvestment(
+    @CurrentUser('householdId') householdId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: MoveToInvestmentDto,
+  ) {
+    return this.recurring.moveToInvestment(householdId, id, dto);
   }
 
   @Delete(':id')

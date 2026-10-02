@@ -263,7 +263,7 @@ export function ImportVida() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="PRIVATE">Só eu</SelectItem>
-                    <SelectItem value="SHARED">Nós dois</SelectItem>
+                    <SelectItem value="SHARED">Compartilhado</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

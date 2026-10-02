@@ -69,9 +69,12 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(dto.password, this.saltRounds);
 
-    // Every account starts in its own household, with default categories.
+    // Every account starts in its own household, with default categories
+    // owned by the user (they go along if the user ever leaves a shared household).
+    const id = randomUUID();
     const user = await this.prisma.user.create({
       data: {
+        id,
         name: dto.name,
         email: dto.email,
         passwordHash,
@@ -81,8 +84,8 @@ export class AuthService {
             household: {
               create: {
                 name: personalHouseholdName(dto.name),
-                categories: { createMany: { data: [...DEFAULT_CATEGORIES] } },
-                accounts: { create: { ...DEFAULT_ACCOUNT } },
+                categories: { createMany: { data: DEFAULT_CATEGORIES.map((c) => ({ ...c, ownerId: id })) } },
+                accounts: { create: { ...DEFAULT_ACCOUNT, ownerId: id } },
               },
             },
           },

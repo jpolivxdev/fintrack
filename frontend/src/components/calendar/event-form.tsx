@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { useDeleteEvent, useHousehold, useSaveEvent } from '@/hooks/queries-more'
+import { useDeleteEvent, useHasCalendarCompany, useSaveEvent } from '@/hooks/queries-more'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { errorMessage } from '@/lib/api'
 import { instantToLocalDate, instantToLocalTime, localToInstant } from '@/lib/datetime'
@@ -48,9 +48,8 @@ export function EventForm({ editing, initialDate, onDone }: { editing?: Calendar
   const isMobile = useIsMobile()
   const save = useSaveEvent()
   const remove = useDeleteEvent()
-  const { data: household } = useHousehold()
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const shared = (household?.members.length ?? 1) > 1
+  const shared = useHasCalendarCompany()
 
   const {
     register,
@@ -170,12 +169,12 @@ export function EventForm({ editing, initialDate, onDone }: { editing?: Calendar
                 value={field.value}
                 onChange={field.onChange}
                 options={[
-                  { value: 'SHARED', label: shared ? 'Nós dois' : 'Todo o lar' },
+                  { value: 'SHARED', label: 'Compartilhado' },
                   { value: 'PRIVATE', label: 'Só eu' },
                 ]}
               />
               {!shared && field.value === 'SHARED' && (
-                <p className="text-xs text-muted-foreground">Convide alguém em Configurações para dividir a agenda.</p>
+                <p className="text-xs text-muted-foreground">Conecte sua agenda com alguém em Configurações → Agenda compartilhada.</p>
               )}
             </div>
           )}

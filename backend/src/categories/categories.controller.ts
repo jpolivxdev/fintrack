@@ -22,7 +22,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { CurrentUser, type AuthUser } from '../common/decorators/current-user.decorator.js';
 import { CategoriesService } from './categories.service.js';
 import {
   CategoryResponseDto,
@@ -43,8 +43,8 @@ export class CategoriesController {
   @ApiOperation({ summary: 'Create a category' })
   @ApiCreatedResponse({ type: CategoryResponseDto })
   @ApiConflictResponse({ description: 'A category with this name and type already exists' })
-  create(@CurrentUser('householdId') householdId: string, @Body() dto: CreateCategoryDto) {
-    return this.categories.create(householdId, dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateCategoryDto) {
+    return this.categories.create(user.householdId, dto, user.id);
   }
 
   @Get()

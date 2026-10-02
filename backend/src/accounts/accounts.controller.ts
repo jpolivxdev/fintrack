@@ -22,7 +22,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentUser } from '../common/decorators/current-user.decorator.js';
+import { CurrentUser, type AuthUser } from '../common/decorators/current-user.decorator.js';
 import { AccountsService } from './accounts.service.js';
 import {
   AccountListDto,
@@ -57,8 +57,8 @@ export class AccountsController {
   @Post()
   @ApiOperation({ summary: 'Create an account (checking, savings, credit card, cash, investment)' })
   @ApiCreatedResponse({ type: AccountResponseDto })
-  create(@CurrentUser('householdId') householdId: string, @Body() dto: CreateAccountDto) {
-    return this.accounts.create(householdId, dto);
+  create(@CurrentUser() user: AuthUser, @Body() dto: CreateAccountDto) {
+    return this.accounts.create(user.householdId, dto, user.id);
   }
 
   @Patch(':id')

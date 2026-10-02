@@ -1,9 +1,11 @@
-import { Copy, Crown, Download, Loader2, LogOut, MessageCircle, Share2, UserMinus, UserPlus } from 'lucide-react'
+import { Crown, Download, Loader2, LogOut, UserMinus, UserPlus } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SegmentedControl } from '@/components/segmented-control'
+import { CalendarSharing } from '@/components/settings/calendar-sharing'
 import { ImportStatement } from '@/components/settings/import-statement'
+import { InviteCodeCard } from '@/components/settings/invite-code-card'
 import { ImportVida } from '@/components/settings/import-vida'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -63,7 +65,7 @@ export function SettingsPage() {
   const isOwner = household?.role === 'OWNER'
   const shared = (household?.members.length ?? 1) > 1
   const shareText = invite
-    ? `Vamos organizar nossas finanças e nossa agenda juntos no FinTrack! Crie sua conta em ${window.location.origin} e, em Configurações → Entrar em um lar, use o código ${invite.code} (vale por 48 horas).`
+    ? `Vamos juntar nossas finanças no FinTrack! Crie sua conta em ${window.location.origin} e, em Configurações → Entrar em um lar, use o código ${invite.code} (vale por 48 horas).`
     : ''
 
   async function saveName() {
@@ -85,16 +87,6 @@ export function SettingsPage() {
     }
   }
 
-  async function shareInvite() {
-    if (!invite) return
-    if (navigator.share) {
-      await navigator.share({ title: 'Convite para o FinTrack', text: shareText }).catch(() => undefined)
-    } else {
-      await navigator.clipboard.writeText(shareText)
-      toast.success('Mensagem copiada.')
-    }
-  }
-
   async function doJoin() {
     try {
       const joined = await join.mutateAsync(code)
@@ -110,7 +102,7 @@ export function SettingsPage() {
   async function doLeave() {
     try {
       await leave.mutateAsync()
-      toast.success('Você saiu do lar compartilhado e começou um lar só seu.')
+      toast.success('Você saiu do lar e levou suas contas e lançamentos.')
     } catch (error) {
       toast.error(errorMessage(error))
     } finally {
@@ -143,11 +135,18 @@ export function SettingsPage() {
       <h1 className="text-2xl font-semibold tracking-[-0.02em]">Configurações</h1>
 
       <Section
-        title="Seu lar"
+        title="Agenda compartilhada"
+        description='Conecte sua agenda com quem você quiser: os compromissos marcados como "Compartilhado" aparecem para os dois. As finanças continuam separadas.'
+      >
+        <CalendarSharing />
+      </Section>
+
+      <Section
+        title="Lar: finanças em conjunto (opcional)"
         description={
           shared
-            ? 'Todos os membros veem e editam as mesmas finanças e os compromissos compartilhados.'
-            : 'Convide quem divide a vida com você para compartilhar finanças e agenda.'
+            ? 'Todos os membros veem e editam as mesmas contas, lançamentos, metas e orçamentos.'
+            : 'Para quem quer juntar as finanças de verdade. Para dividir só a agenda, use a Agenda compartilhada acima.'
         }
       >
         {isLoading || !household ? (
@@ -203,34 +202,13 @@ export function SettingsPage() {
       </Section>
 
       {household && isOwner && (
-        <Section title="Convidar alguém" description="Gere um código e envie para quem vai dividir as finanças e a agenda com você. Vale por 48 horas e só pode ser usado uma vez.">
+        <Section title="Convidar para o lar" description="Gere um código para quem vai juntar as finanças com você. Vale por 48 horas e só pode ser usado uma vez.">
           {!household.invitesEnabled ? (
             <p className="rounded-xl bg-muted/50 p-4 text-sm text-muted-foreground">
               Convites estão desativados na conta demo, que é compartilhada por todos os visitantes. Crie sua própria conta para testar.
             </p>
           ) : invite ? (
-            <div className="grid gap-4">
-              <div className="rounded-xl border bg-muted/30 p-5 text-center">
-                <p className="text-xs text-muted-foreground">Código de convite</p>
-                <p className="mt-1 font-mono text-3xl font-semibold tracking-[0.2em] tabular select-all">{invite.code}</p>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Válido até {new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(invite.expiresAt))}
-                </p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-3 [&>*]:h-11 sm:[&>*]:h-9">
-                <Button variant="outline" onClick={() => navigator.clipboard.writeText(invite.code).then(() => toast.success('Código copiado.'))}>
-                  <Copy className="size-4" /> Copiar código
-                </Button>
-                <Button variant="outline" onClick={() => void shareInvite()}>
-                  <Share2 className="size-4" /> Compartilhar
-                </Button>
-                <Button variant="outline" asChild>
-                  <a href={`https://wa.me/?text=${encodeURIComponent(shareText)}`} target="_blank" rel="noreferrer">
-                    <MessageCircle className="size-4" /> WhatsApp
-                  </a>
-                </Button>
-              </div>
-            </div>
+            <InviteCodeCard code={invite.code} expiresAt={invite.expiresAt} shareText={shareText} />
           ) : (
             <Button onClick={generateInvite} disabled={createInvite.isPending} className="h-11 justify-self-start sm:h-9">
               {createInvite.isPending ? <Loader2 className="size-4 animate-spin" /> : <UserPlus className="size-4" />}
@@ -241,7 +219,7 @@ export function SettingsPage() {
       )}
 
       {household && !shared && household.invitesEnabled && (
-        <Section title="Entrar em um lar" description="Recebeu um código? Digite aqui para juntar as finanças e a agenda com quem te convidou.">
+        <Section title="Entrar em um lar" description="Recebeu um código de lar? Digite aqui para juntar as finanças com quem te convidou.">
           <form
             className="flex gap-2"
             onSubmit={(e) => {
@@ -319,7 +297,7 @@ export function SettingsPage() {
         open={confirm === 'join'}
         onOpenChange={(open) => !open && setConfirm('none')}
         title="Entrar neste lar?"
-        description="Suas transações, contas, metas e compromissos vão para o lar de quem te convidou. Categorias com o mesmo nome são unidas. Depois, vocês dois veem e editam tudo juntos."
+        description="Suas contas, lançamentos, metas e compromissos vão para o lar de quem te convidou, e vocês dois passam a ver e editar tudo juntos. Categorias com o mesmo nome são unidas. Se um dia você sair, leva de volta o que é seu."
         confirmLabel="Entrar e juntar"
         onConfirm={doJoin}
       />
@@ -327,7 +305,7 @@ export function SettingsPage() {
         open={confirm === 'leave'}
         onOpenChange={(open) => !open && setConfirm('none')}
         title="Sair do lar compartilhado?"
-        description="Os dados compartilhados ficam com o lar. Você começa do zero num lar só seu, com as categorias padrão."
+        description="Você leva as contas que trouxe (com todos os lançamentos delas), suas metas e seus compromissos. O que é da outra pessoa fica com ela. Transferências entre vocês viram uma entrada e uma saída, para os saldos continuarem certos."
         confirmLabel="Sair do lar"
         onConfirm={doLeave}
       />
@@ -335,7 +313,7 @@ export function SettingsPage() {
         open={!!memberToRemove}
         onOpenChange={(open) => !open && setMemberToRemove(null)}
         title={`Remover ${memberToRemove?.name ?? ''}?`}
-        description="A pessoa deixa de ver os dados do lar e começa num lar só dela. O que foi lançado continua aqui."
+        description="A pessoa deixa de ver os dados do lar e leva as contas que trouxe, com os lançamentos delas, além das metas e compromissos que criou."
         confirmLabel="Remover"
         onConfirm={doRemove}
       />

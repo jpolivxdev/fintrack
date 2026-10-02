@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { useDialogs } from '@/components/dialogs/dialogs-context'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useCalendar, useHousehold } from '@/hooks/queries-more'
+import { useCalendar, useHasCalendarCompany } from '@/hooks/queries-more'
 import { formatLongDay, formatTime, instantToLocalDate, localDateKey, toLocalIso } from '@/lib/datetime'
 import { formatMoney, monthLabel } from '@/lib/format'
 import { useMonth } from '@/lib/month'
@@ -37,8 +37,7 @@ function daysOf(event: CalendarEvent): string[] {
 export function CalendarPage() {
   const { year, month } = useMonth()
   const { newEvent, editEvent } = useDialogs()
-  const { data: household } = useHousehold()
-  const shared = (household?.members.length ?? 1) > 1
+  const shared = useHasCalendarCompany()
   const today = localDateKey(new Date())
   const [selected, setSelected] = useState<string>(today)
 
@@ -115,7 +114,7 @@ export function CalendarPage() {
                     type="button"
                     onClick={() => setSelected(key)}
                     onDoubleClick={() => newEvent(key)}
-                    aria-label={`${formatLongDay(key)}${items ? `, ${items.events.length} compromissos e ${items.bills.length} contas` : ''}`}
+                    aria-label={`${formatLongDay(key)}${items ? `, ${items.events.length} ${items.events.length === 1 ? 'compromisso' : 'compromissos'} e ${items.bills.length} ${items.bills.length === 1 ? 'conta' : 'contas'}` : ''}`}
                     aria-pressed={isSelected}
                     className={cn(
                       'flex min-h-14 flex-col gap-1 bg-card p-1.5 text-left transition-colors sm:min-h-24 sm:p-2',
@@ -215,7 +214,7 @@ export function CalendarPage() {
                               ) : (
                                 shared && (
                                   <span className="inline-flex items-center gap-1">
-                                    <Users className="size-3" /> {e.isMine ? 'Vocês dois' : `Criado por ${e.createdBy?.name ?? 'alguém do lar'}`}
+                                    <Users className="size-3" /> {e.isMine ? 'Compartilhado' : `Criado por ${e.createdBy?.name ?? 'outra pessoa'}`}
                                   </span>
                                 )
                               )}
