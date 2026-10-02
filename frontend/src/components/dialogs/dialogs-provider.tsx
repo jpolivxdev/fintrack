@@ -1,11 +1,27 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { TransferForm } from '@/components/accounts/transfer-form'
-import { EventForm } from '@/components/calendar/event-form'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { ResponsiveDialog } from '@/components/responsive-dialog'
-import { TransactionForm } from '@/components/transactions/transaction-form'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { CalendarEvent, Transaction, TransactionType } from '@/lib/types'
 import { DialogsContext, type DialogsApi } from './dialogs-context'
+
+// Forms (and their validation libraries) stay out of the first download...
+const loadTransactionForm = () => import('@/components/transactions/transaction-form')
+const loadTransferForm = () => import('@/components/accounts/transfer-form')
+const loadEventForm = () => import('@/components/calendar/event-form')
+const TransactionForm = lazy(() => loadTransactionForm().then((m) => ({ default: m.TransactionForm })))
+const TransferForm = lazy(() => loadTransferForm().then((m) => ({ default: m.TransferForm })))
+const EventForm = lazy(() => loadEventForm().then((m) => ({ default: m.EventForm })))
+
+function FormSkeleton() {
+  return (
+    <div className="grid gap-4" aria-busy="true" aria-label="Carregando formulário">
+      {[0, 1, 2, 3].map((i) => (
+        <Skeleton key={i} className="h-10 w-full" />
+      ))}
+    </div>
+  )
+}
 
 type State =
   | { kind: 'none' }
@@ -15,6 +31,16 @@ type State =
 
 /** Hosts the app-wide forms so any screen (or the mobile "+") can open them. */
 export function DialogsProvider({ children }: { children: ReactNode }) {
+  useEffect(() => {
+    const prefetch = () => void Promise.all([loadTransactionForm(), loadTransferForm(), loadEventForm()])
+    if (typeof window.requestIdleCallback === 'function') {
+      const id = window.requestIdleCallback(prefetch, { timeout: 4000 })
+      return () => window.cancelIdleCallback(id)
+    }
+    const id = window.setTimeout(prefetch, 2500)
+    return () => window.clearTimeout(id)
+  }, [])
+
   const [state, setState] = useState<State>({ kind: 'none' })
   const [open, setOpen] = useState(false)
   const isMobile = useIsMobile()
@@ -63,9 +89,11 @@ export function DialogsProvider({ children }: { children: ReactNode }) {
     <DialogsContext.Provider value={api}>
       {children}
       <ResponsiveDialog open={open} onOpenChange={setOpen} title={heading.title} description={heading.description}>
-        {state.kind === 'transaction' && <TransactionForm editing={state.editing} initialType={state.type} onDone={close} />}
-        {state.kind === 'transfer' && <TransferForm onDone={close} />}
-        {state.kind === 'event' && <EventForm editing={state.editing} initialDate={state.date} onDone={close} />}
+        <Suspense fallback={<FormSkeleton />}>
+          {state.kind === 'transaction' && <TransactionForm editing={state.editing} initialType={state.type} onDone={close} />}
+          {state.kind === 'transfer' && <TransferForm onDone={close} />}
+          {state.kind === 'event' && <EventForm editing={state.editing} initialDate={state.date} onDone={close} />}
+        </Suspense>
       </ResponsiveDialog>
     </DialogsContext.Provider>
   )

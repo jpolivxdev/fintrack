@@ -34,6 +34,8 @@ export default defineConfig({
         // never touch the service worker cache, so no financial data is kept
         // on the device and nothing stale is ever shown.
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // three.js is only used by the desktop login scene: fetch it on demand, don't precache.
+        globIgnores: ['**/auth-scene-*.js'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api/],
         runtimeCaching: [],
