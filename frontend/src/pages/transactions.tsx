@@ -285,7 +285,7 @@ export function TransactionsPage() {
                 const day = SORTS[sort].sortBy === 'date' && (i === 0 || data.data[i - 1].date !== t.date) ? t.date : null
                 return [
                   day && (
-                    <li key={`day-${day}`} className="sticky top-14 z-[1] flex items-center justify-between bg-card/95 px-4 pt-4 pb-1.5 text-xs font-medium text-muted-foreground backdrop-blur md:px-5">
+                    <li key={`day-${day}`} className="flex items-center justify-between bg-muted/30 px-4 pt-4 pb-1.5 text-xs font-medium text-muted-foreground md:px-5">
                       <span className="first-letter:uppercase">{dayLabel(day)}</span>
                       <span className="tabular">{signedMoney(dayTotal(data.data, day))}</span>
                     </li>
