@@ -174,7 +174,7 @@ export function EventForm({ editing, initialDate, onDone }: { editing?: Calendar
                 ]}
               />
               {!shared && field.value === 'SHARED' && (
-                <p className="text-xs text-muted-foreground">Conecte sua agenda com alguém em Configurações → Agenda compartilhada.</p>
+                <p className="text-xs text-muted-foreground">Para dividir a agenda com alguém, vá em Configurações → Compartilhar com alguém.</p>
               )}
             </div>
           )}

@@ -1,5 +1,6 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { toast } from 'sonner'
+import { trackRequests } from './network-status'
 import type { AuthResponse } from './types'
 
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000/api'
@@ -57,6 +58,7 @@ export const session = {
 }
 
 export const api = axios.create({ baseURL: API_URL, timeout: 75_000 })
+trackRequests(api)
 
 // --- Free-tier cold start: tell the user why the first request is slow ----
 const WAKE_TOAST_ID = 'api-waking-up'
@@ -139,6 +141,7 @@ api.interceptors.response.use(
 
 // --- Errors in the user's language ------------------------------------------
 const KNOWN_MESSAGES: Array<[RegExp, string]> = [
+  [/Invalid or expired reset link/i, "Esse link expirou ou já foi usado. Peça um novo em Esqueci minha senha."],
   [/This is your own invite code/i, "Esse código é seu. Mande para a outra pessoa digitar."],
   [/already share calendars/i, "Vocês já compartilham a agenda."],
   [/calendar can be shared with at most/i, "A agenda pode ser compartilhada com no máximo 10 pessoas."],

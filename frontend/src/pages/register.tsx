@@ -83,7 +83,7 @@ export function RegisterPage() {
 
       <p className="mt-8 text-sm text-muted-foreground">
         Já tem conta?{' '}
-        <Link to="/login" className="font-medium text-primary hover:underline">
+        <Link to="/login" className="font-medium text-primary-text hover:underline">
           Entrar
         </Link>
       </p>

@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client'
 import App from './App'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
+import { ConnectionStatus } from '@/components/connection-status'
 import { AuthProvider } from '@/lib/auth'
 import './index.css'
 
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
             <App />
           </TooltipProvider>
         </AuthProvider>
+        <ConnectionStatus />
         <Toaster position="top-center" richColors closeButton />
       </QueryClientProvider>
     </ThemeProvider>

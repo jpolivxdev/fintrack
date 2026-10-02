@@ -1,5 +1,6 @@
-import { AlertTriangle, CalendarClock, CircleCheck, Info, Lightbulb, TrendingDown, TrendingUp, Trophy, type LucideIcon } from 'lucide-react'
+import { AlertTriangle, CalendarClock, ChevronRight, CircleCheck, Info, Lightbulb, TrendingDown, TrendingUp, Trophy, type LucideIcon } from 'lucide-react'
 import { motion } from 'motion/react'
+import { Link } from 'react-router'
 import { formatDate, formatMoney, formatPercent } from '@/lib/format'
 import type { Insight, InsightSeverity } from '@/lib/types'
 import { cn } from '@/lib/utils'
@@ -28,7 +29,7 @@ export function phrase(insight: Insight): { title: string; detail: string; icon:
     case 'BIGGEST_EXPENSE':
       return { icon: Info, title: `Maior gasto: ${d.description}`, detail: `${money(d.amount)} em ${formatDate(String(d.date))} (${pct(d.shareOfExpenses)} das despesas).` }
     case 'UPCOMING_BILLS':
-      return { icon: CalendarClock, title: `${d.count} conta(s) nos próximos 7 dias`, detail: `${money(d.total)} a pagar em breve.` }
+      return { icon: CalendarClock, title: `${d.count} ${Number(d.count) === 1 ? 'conta' : 'contas'} nos próximos 7 dias`, detail: `${money(d.total)} a pagar em breve.` }
     case 'GOAL_BEHIND':
       return {
         icon: Lightbulb,
@@ -42,11 +43,27 @@ export function phrase(insight: Insight): { title: string; detail: string; icon:
   }
 }
 
+/** Where each insight can be acted on. */
+const WHERE: Record<Insight['kind'], string> = {
+  BUDGET_EXCEEDED: '/orcamentos',
+  BUDGET_PACE: '/orcamentos',
+  BUDGET_WARNING: '/orcamentos',
+  UNBUDGETED_SPENDING: '/orcamentos',
+  CATEGORY_SPIKE: '/transacoes',
+  CATEGORY_DROP: '/transacoes',
+  SPENT_MORE_THAN_EARNED: '/transacoes',
+  SAVINGS_GOOD: '/transacoes',
+  BIGGEST_EXPENSE: '/transacoes',
+  UPCOMING_BILLS: '/agenda',
+  GOAL_BEHIND: '/metas',
+  GOAL_COMPLETED: '/metas',
+}
+
 const TONE: Record<InsightSeverity, string> = {
   danger: 'text-expense bg-expense/12',
   warning: 'text-warning bg-warning/12',
   positive: 'text-income bg-income/12',
-  info: 'text-primary bg-primary/12',
+  info: 'text-primary-text bg-primary/12',
 }
 
 export function InsightList({ insights }: { insights: Insight[] }) {
@@ -60,8 +77,9 @@ export function InsightList({ insights }: { insights: Insight[] }) {
             initial={{ opacity: 0, x: -6 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.05, duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="flex gap-3 rounded-xl p-2"
+            className="rounded-xl"
           >
+            <Link to={WHERE[insight.kind]} className="group flex min-h-11 gap-3 rounded-xl p-2 transition-colors hover:bg-muted/50">
             <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', TONE[insight.severity])}>
               <Icon className="size-4" />
             </span>
@@ -69,6 +87,8 @@ export function InsightList({ insights }: { insights: Insight[] }) {
               <span className="block text-sm font-medium">{title}</span>
               <span className="block text-sm text-muted-foreground">{detail}</span>
             </span>
+            <ChevronRight className="mt-2.5 ml-auto size-4 shrink-0 text-muted-foreground opacity-60 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </Link>
           </motion.li>
         )
       })}

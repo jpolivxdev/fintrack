@@ -11,6 +11,8 @@ const BudgetsPage = lazy(() => import('@/pages/budgets').then((m) => ({ default:
 const CategoriesPage = lazy(() => import('@/pages/categories').then((m) => ({ default: m.CategoriesPage })))
 const LoginPage = lazy(() => import('@/pages/login').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/pages/register').then((m) => ({ default: m.RegisterPage })))
+const ForgotPasswordPage = lazy(() => import('@/pages/password').then((m) => ({ default: m.ForgotPasswordPage })))
+const ResetPasswordPage = lazy(() => import('@/pages/password').then((m) => ({ default: m.ResetPasswordPage })))
 const AccountsPage = lazy(() => import('@/pages/accounts').then((m) => ({ default: m.AccountsPage })))
 const CalendarPage = lazy(() => import('@/pages/calendar').then((m) => ({ default: m.CalendarPage })))
 const GoalsPage = lazy(() => import('@/pages/goals').then((m) => ({ default: m.GoalsPage })))
@@ -51,6 +53,9 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<GuestOnly><LoginPage /></GuestOnly>} />
         <Route path="/cadastro" element={<GuestOnly><RegisterPage /></GuestOnly>} />
+        <Route path="/esqueci-senha" element={<GuestOnly><ForgotPasswordPage /></GuestOnly>} />
+        {/* Not guest-only: the e-mailed link must work even with an open session. */}
+        <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
         <Route
           element={
             <RequireAuth>
@@ -70,7 +75,8 @@ export default function App() {
           <Route path="metas" element={<GoalsPage />} />
           <Route path="investimentos" element={<InvestmentsPage />} />
           <Route path="recorrentes" element={<RecurringPage />} />
-          <Route path="calendario" element={<CalendarPage />} />
+          <Route path="agenda" element={<CalendarPage />} />
+          <Route path="calendario" element={<Navigate to="/agenda" replace />} />
           <Route path="configuracoes" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -33,6 +33,7 @@
     --color-secondary: var(--secondary);
     --color-primary-foreground: var(--primary-foreground);
     --color-primary: var(--primary);
+    --color-primary-text: var(--primary-text);
     --color-popover-foreground: var(--popover-foreground);
     --color-popover: var(--popover);
     --color-card-foreground: var(--card-foreground);
@@ -64,6 +65,8 @@
     --popover-foreground: oklch(0.2 0.04 275);
     --primary: oklch(0.5 0.22 292);
     --primary-foreground: oklch(0.99 0.005 290);
+    /* Violet used as text: same as the fill on light backgrounds. */
+    --primary-text: oklch(0.5 0.22 292);
     --secondary: oklch(0.95 0.015 280);
     --secondary-foreground: oklch(0.28 0.06 278);
     --muted: oklch(0.955 0.01 280);
@@ -100,8 +103,10 @@
     --card-foreground: oklch(0.95 0.012 280);
     --popover: oklch(0.19 0.032 274);
     --popover-foreground: oklch(0.95 0.012 280);
-    --primary: oklch(0.6 0.21 293);
+    /* Fill (buttons): 5.2:1 with white text. Text on dark uses --primary-text (7:1). */
+    --primary: oklch(0.55 0.21 293);
     --primary-foreground: oklch(0.99 0.005 290);
+    --primary-text: oklch(0.72 0.17 293);
     --secondary: oklch(0.22 0.038 272);
     --secondary-foreground: oklch(0.92 0.015 280);
     --muted: oklch(0.205 0.03 273);
@@ -122,7 +127,7 @@
     --chart-5: oklch(0.8 0.08 305);
     --sidebar: oklch(0.155 0.025 274);
     --sidebar-foreground: oklch(0.88 0.02 280);
-    --sidebar-primary: oklch(0.6 0.21 293);
+    --sidebar-primary: oklch(0.55 0.21 293);
     --sidebar-primary-foreground: oklch(0.99 0.005 290);
     --sidebar-accent: oklch(0.225 0.045 282);
     --sidebar-accent-foreground: oklch(0.95 0.02 285);
@@ -171,6 +176,19 @@
 @layer utilities {
   /* Money and dates line up in columns */
   .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Slow drifting lights behind the home hero (transform only: cheap to composite). */
+  .aurora-a { animation: aurora-a 18s ease-in-out infinite alternate; }
+  .aurora-b { animation: aurora-b 23s ease-in-out infinite alternate; }
+}
+
+@keyframes aurora-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(48px, 28px, 0) scale(1.18); }
+}
+@keyframes aurora-b {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to { transform: translate3d(-56px, -24px, 0) scale(0.92); }
 }
 
 @media (prefers-reduced-motion: reduce) {

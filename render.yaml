@@ -29,3 +29,9 @@ services:
         value: '3' # proxies in Render's chain (see SECURITY.md for how this was verified)
       - key: SEED_DEMO_ON_START
         value: 'true'
+      - key: APP_URL
+        value: https://fintrack-flax-two.vercel.app # links in e-mails (never taken from the request)
+      - key: BREVO_API_KEY
+        sync: false # transactional e-mail for "forgot password"; without it the option is hidden
+      - key: MAIL_FROM
+        sync: false # sender address verified in Brevo

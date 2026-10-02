@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
+import { useQuery } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -9,7 +10,7 @@ import { AuthLayout } from '@/components/auth/auth-layout'
 import { FormField } from '@/components/form-field'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { errorMessage } from '@/lib/api'
+import { api, errorMessage } from '@/lib/api'
 import { DEMO_CREDENTIALS, useAuth } from '@/lib/auth'
 
 const schema = z.object({
@@ -23,6 +24,13 @@ export function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [demoLoading, setDemoLoading] = useState(false)
+  // The link only shows when the server can actually send the e-mail.
+  const { data: capabilities } = useQuery({
+    queryKey: ['auth-capabilities'],
+    queryFn: async () => (await api.get<{ passwordReset: boolean }>('/auth/capabilities')).data,
+    staleTime: Infinity,
+    retry: false,
+  })
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const {
@@ -65,7 +73,18 @@ export function LoginPage() {
             {...register('email')}
           />
         </FormField>
-        <FormField id="password" label="Senha" error={errors.password?.message}>
+        <FormField
+          id="password"
+          label="Senha"
+          error={errors.password?.message}
+          hint={
+            capabilities?.passwordReset ? (
+              <Link to="/esqueci-senha" className="font-medium text-primary-text hover:underline">
+                Esqueci minha senha
+              </Link>
+            ) : undefined
+          }
+        >
           <Input
             id="password"
             type="password"
@@ -97,7 +116,7 @@ export function LoginPage() {
 
       <p className="mt-8 text-sm text-muted-foreground">
         Ainda não tem conta?{' '}
-        <Link to="/cadastro" className="font-medium text-primary hover:underline">
+        <Link to="/cadastro" className="font-medium text-primary-text hover:underline">
           Criar conta
         </Link>
       </p>

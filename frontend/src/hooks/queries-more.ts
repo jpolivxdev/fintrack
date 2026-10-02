@@ -408,3 +408,11 @@ export function useMoveRuleToInvestment() {
     onSuccess: invalidate,
   })
 }
+
+/** What a received code shares (calendar only, or finances too) and who sent it, without using it. */
+export function useLookupInvite() {
+  return useMutation({
+    mutationFn: async (code: string) =>
+      (await api.post<{ kind: 'CALENDAR' | 'HOUSEHOLD'; inviterName: string }>('/invites/lookup', { code })).data,
+  })
+}

@@ -187,7 +187,7 @@ export function AccountsPage() {
                   {t.description && <span className="truncate text-xs text-muted-foreground">{t.description}</span>}
                 </span>
                 <span className="font-medium tabular">{formatMoney(t.amount)}</span>
-                <Button variant="ghost" size="icon" className="size-9" aria-label="Excluir transferência" onClick={() => setTransferToDelete(t)}>
+                <Button variant="ghost" size="icon" className="size-11 md:size-9" aria-label="Excluir transferência" onClick={() => setTransferToDelete(t)}>
                   <Trash2 className="size-4" />
                 </Button>
               </li>

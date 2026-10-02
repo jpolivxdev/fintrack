@@ -6,6 +6,7 @@ import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
 import { CATEGORY_COLORS, CATEGORY_ICONS, CategoryIcon } from '@/components/category-icon'
+import { Celebrate } from '@/components/celebrate'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { EmptyState } from '@/components/empty-state'
 import { FormField } from '@/components/form-field'
@@ -23,7 +24,7 @@ import { cn } from '@/lib/utils'
 
 const STATUS: Record<GoalStatus, { label: string; className: string }> = {
   COMPLETED: { label: 'Concluída', className: 'bg-income/15 text-income' },
-  ON_TRACK: { label: 'No ritmo', className: 'bg-primary/15 text-primary' },
+  ON_TRACK: { label: 'No ritmo', className: 'bg-primary/15 text-primary-text' },
   BEHIND: { label: 'Atrasada', className: 'bg-warning/15 text-warning' },
   OVERDUE: { label: 'Prazo vencido', className: 'bg-expense/15 text-expense' },
   NO_DEADLINE: { label: 'Sem prazo', className: 'bg-muted text-muted-foreground' },
@@ -126,6 +127,7 @@ function GoalDetailSheet({ goalId, onClose, onEdit }: { goalId: string | null; o
   const { data: goal } = useGoal(goalId)
   const { data: household } = useHousehold()
   const contribute = useContribute()
+  const [burst, setBurst] = useState(0)
   const removeContribution = useRemoveContribution()
   const save = useSaveGoal()
   const remove = useDeleteGoal()
@@ -140,9 +142,16 @@ function GoalDetailSheet({ goalId, onClose, onEdit }: { goalId: string | null; o
     const value = parseMoneyInput(amount)
     if (!goal || !value) return toast.error('Informe um valor maior que zero.')
     try {
-      await contribute.mutateAsync({ goalId: goal.id, amount: mode === 'IN' ? value : -value, date })
+      const wasDone = goal.status === 'COMPLETED'
+      const updated = await contribute.mutateAsync({ goalId: goal.id, amount: mode === 'IN' ? value : -value, date })
       setAmount('')
-      toast.success(mode === 'IN' ? 'Aporte registrado.' : 'Retirada registrada.')
+      if (!wasDone && updated.status === 'COMPLETED') {
+        // A real milestone: worth a moment.
+        setBurst((b) => b + 1)
+        toast.success(`Meta "${goal.name}" alcançada! Parabéns.`)
+      } else {
+        toast.success(mode === 'IN' ? 'Aporte registrado.' : 'Retirada registrada.')
+      }
     } catch (error) {
       toast.error(errorMessage(error))
     }
@@ -168,6 +177,7 @@ function GoalDetailSheet({ goalId, onClose, onEdit }: { goalId: string | null; o
 
   return (
     <ResponsiveDialog open={!!goalId} onOpenChange={(open) => !open && onClose()} title={goal?.name ?? 'Meta'} description={goal ? guidance(goal) : undefined} className="sm:max-w-lg">
+      <Celebrate burst={burst} onDone={() => undefined} />
       {!goal ? (
         <Skeleton className="h-40 w-full" />
       ) : (
@@ -234,10 +244,23 @@ function GoalDetailSheet({ goalId, onClose, onEdit }: { goalId: string | null; o
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8"
+                      className="size-11 md:size-8"
                       aria-label="Remover lançamento"
                       onClick={() =>
-                        removeContribution.mutateAsync({ goalId: goal.id, contributionId: c.id }).catch((e) => toast.error(errorMessage(e)))
+                        removeContribution
+                          .mutateAsync({ goalId: goal.id, contributionId: c.id })
+                          .then(() =>
+                            toast.success('Lançamento removido.', {
+                              action: {
+                                label: 'Desfazer',
+                                onClick: () =>
+                                  void contribute
+                                    .mutateAsync({ goalId: goal.id, amount: Number(c.amount), date: c.date, note: c.note ?? undefined })
+                                    .catch((e) => toast.error(errorMessage(e))),
+                              },
+                            }),
+                          )
+                          .catch((e) => toast.error(errorMessage(e)))
                       }
                     >
                       <Trash2 className="size-3.5" />

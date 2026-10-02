@@ -78,7 +78,7 @@ export function CalendarPage() {
     <div className="grid min-w-0 gap-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Calendário</h1>
+          <h1 className="text-2xl font-semibold tracking-[-0.02em]">Agenda</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {shared ? 'Compromissos de vocês e as contas do mês, num lugar só.' : 'Seus compromissos e as contas do mês, num lugar só.'}
           </p>
@@ -141,13 +141,16 @@ export function CalendarPage() {
                           {items.bills.slice(0, 2).map((b) => (
                             <span key={b.ruleId + b.date} className={cn('size-1.5 rounded-[2px]', b.type === 'INCOME' ? 'bg-income' : 'bg-expense', b.done && 'opacity-40')} />
                           ))}
+                          {items.events.length + items.bills.length > 5 && (
+                            <span className="text-[9px] leading-none text-muted-foreground">+{items.events.length + items.bills.length - Math.min(items.events.length, 3) - Math.min(items.bills.length, 2)}</span>
+                          )}
                         </span>
                         {/* Tablet and up: chips. */}
                         <span className="hidden min-w-0 flex-col gap-0.5 sm:flex">
                           {items.events.slice(0, 2).map((e) => (
                             <span
                               key={e.id}
-                              className="truncate rounded px-1 py-0.5 text-[11px] font-medium"
+                              className="truncate rounded px-1.5 py-0.5 text-[11px] font-medium"
                               style={{ backgroundColor: `color-mix(in oklch, ${e.color ?? 'var(--primary)'} 22%, transparent)` }}
                             >
                               {!e.allDay && <span className="tabular">{formatTime(e.startAt)} </span>}

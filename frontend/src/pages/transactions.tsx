@@ -19,6 +19,7 @@ import { downloadTransactionsCsv, useAccounts, useHousehold } from '@/hooks/quer
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { errorMessage } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { formatDate, formatMoney, formatShortDate, monthLabel } from '@/lib/format'
 import { useMonth } from '@/lib/month'
 import type { Transaction, TransactionType } from '@/lib/types'
@@ -34,7 +35,26 @@ const SORTS = {
 } as const
 type SortKey = keyof typeof SORTS
 
+const signedMoney = (n: number) => `${n >= 0 ? '+' : '−'} ${formatMoney(Math.abs(n))}`
+
+function dayTotal(list: Transaction[], day: string): number {
+  return list.filter((t) => t.date === day).reduce((acc, t) => acc + (t.type === 'INCOME' ? 1 : -1) * Number(t.amount), 0)
+}
+
+/** "Hoje", "Ontem" or "quinta, 1 de outubro". */
+function dayLabel(day: string): string {
+  const d = new Date(`${day}T12:00:00`)
+  const today = new Date()
+  today.setHours(12, 0, 0, 0)
+  const diff = Math.round((today.getTime() - d.getTime()) / 86_400_000)
+  if (diff === 0) return 'Hoje'
+  if (diff === 1) return 'Ontem'
+  if (diff === -1) return 'Amanhã'
+  return new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(d)
+}
+
 export function TransactionsPage() {
+  const { user } = useAuth()
   const { year, month, start, end } = useMonth()
   const { newTransaction, editTransaction } = useDialogs()
   const isMobile = useIsMobile()
@@ -261,7 +281,15 @@ export function TransactionsPage() {
         ) : (
           <ul className="divide-y">
             <AnimatePresence initial={false}>
-              {data.data.map((t, i) => (
+              {data.data.map((t, i) => {
+                const day = SORTS[sort].sortBy === 'date' && (i === 0 || data.data[i - 1].date !== t.date) ? t.date : null
+                return [
+                  day && (
+                    <li key={`day-${day}`} className="sticky top-14 z-[1] flex items-center justify-between bg-card/95 px-4 pt-4 pb-1.5 text-xs font-medium text-muted-foreground backdrop-blur md:px-5">
+                      <span className="first-letter:uppercase">{dayLabel(day)}</span>
+                      <span className="tabular">{signedMoney(dayTotal(data.data, day))}</span>
+                    </li>
+                  ),
                 <motion.li
                   key={t.id}
                   layout="position"
@@ -288,10 +316,15 @@ export function TransactionsPage() {
                         )}
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
-                        <span className="md:hidden">{formatShortDate(t.date)} · </span>
-                        <span className="hidden md:inline">{formatDate(t.date)} · </span>
+                        {SORTS[sort].sortBy !== 'date' && (
+                          <>
+                            <span className="md:hidden">{formatShortDate(t.date)} · </span>
+                            <span className="hidden md:inline">{formatDate(t.date)} · </span>
+                          </>
+                        )}
                         {t.category.name} · {t.account.name}
-                        {shared && t.createdBy && ` · ${t.createdBy.name}`}
+                        {/* Only the partner's entries say who registered them. */}
+                        {shared && t.createdBy && t.createdBy.id !== user?.id && ` · por ${t.createdBy.name.split(' ')[0]}`}
                       </span>
                     </span>
                     <span className={cn('shrink-0 text-right font-medium whitespace-nowrap tabular', t.type === 'INCOME' && 'text-income')}>
@@ -313,8 +346,9 @@ export function TransactionsPage() {
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                </motion.li>
-              ))}
+                </motion.li>,
+                ]
+              })}
             </AnimatePresence>
           </ul>
         )}

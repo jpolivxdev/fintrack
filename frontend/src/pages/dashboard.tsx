@@ -1,10 +1,10 @@
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
 import { motion } from 'motion/react'
 import { Link } from 'react-router'
 import { Bar, CartesianGrid, ComposedChart, Line, Pie, PieChart, XAxis, YAxis, Cell } from 'recharts'
 import { AccountIcon } from '@/components/accounts/account-icon'
 import { BudgetBar } from '@/components/budget-bar'
 import { InsightList } from '@/components/dashboard/insight-list'
+import { SpendHero } from '@/components/dashboard/spend-hero'
 import { BUDGET_STATUS } from '@/components/budget-status'
 import { CategoryIcon } from '@/components/category-icon'
 import { EmptyState } from '@/components/empty-state'
@@ -12,7 +12,7 @@ import { useDialogs } from '@/components/dialogs/dialogs-context'
 import { Button } from '@/components/ui/button'
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useBudgetVsActual, useByCategory, useMonthly, useSummary, useTransactions } from '@/hooks/queries'
+import { useBudgetVsActual, useByCategory, useMonthly, useTransactions } from '@/hooks/queries'
 import { useAccounts, useCalendar, useGoals, useInsights } from '@/hooks/queries-more'
 import { useAuth } from '@/lib/auth'
 import { formatTime, instantToLocalDate, localDateKey, toLocalIso } from '@/lib/datetime'
@@ -41,83 +41,6 @@ function PanelTitle({ children, action }: { children: React.ReactNode; action?: 
       <h2 className="text-base font-semibold tracking-[-0.01em]">{children}</h2>
       {action}
     </div>
-  )
-}
-
-/** Change vs previous month. For expenses, going up is the bad direction. */
-function Change({ value, invert = false }: { value: number | null; invert?: boolean }) {
-  if (value === null) return <span className="text-xs text-muted-foreground">sem base no mês anterior</span>
-  const up = value >= 0
-  const good = invert ? !up : up
-  const Icon = up ? ArrowUpRight : ArrowDownRight
-  return (
-    <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium tabular', good ? 'text-income' : 'text-expense')}>
-      <Icon className="size-3.5" />
-      {formatPercent(Math.abs(value))}
-      <span className="ml-1 font-normal text-muted-foreground">vs. mês anterior</span>
-    </span>
-  )
-}
-
-function Summary() {
-  const { year, month } = useMonth()
-  const { data, isLoading } = useSummary(year, month)
-
-  if (isLoading || !data) {
-    return (
-      <Panel className="grid gap-6 lg:grid-cols-[1.3fr_1fr_1fr]">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="grid gap-3">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-9 w-44" />
-            <Skeleton className="h-3 w-36" />
-          </div>
-        ))}
-      </Panel>
-    )
-  }
-
-  const net = Number(data.net)
-  return (
-    <Panel className="grid gap-6 lg:grid-cols-[1.3fr_1fr_1fr] lg:gap-0 lg:divide-x">
-      <div className="lg:pr-8">
-        <p className="text-sm text-muted-foreground">Saldo acumulado</p>
-        <p className="mt-1 text-4xl font-semibold tracking-[-0.03em] tabular">{formatMoney(data.balance)}</p>
-        <p className="mt-3 text-sm text-muted-foreground">
-          {monthLabel(year, month)}:{' '}
-          <span className={cn('font-medium tabular', net >= 0 ? 'text-income' : 'text-expense')}>
-            {net >= 0 ? '+' : ''}
-            {formatMoney(data.net)}
-          </span>
-          {data.savingsRate !== null && (
-            <>
-              {' · '}
-              {data.savingsRate >= 0
-                ? `você guardou ${formatPercent(data.savingsRate)} da renda`
-                : `gastou ${formatPercent(Math.abs(data.savingsRate))} além da renda`}
-            </>
-          )}
-        </p>
-      </div>
-      <div className="lg:px-8">
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="size-2 rounded-full bg-income" aria-hidden /> Receitas
-        </p>
-        <p className="mt-1 text-2xl font-semibold tracking-[-0.02em] tabular">{formatMoney(data.income)}</p>
-        <div className="mt-2">
-          <Change value={data.incomeChange} />
-        </div>
-      </div>
-      <div className="lg:pl-8">
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="size-2 rounded-full bg-expense" aria-hidden /> Despesas
-        </p>
-        <p className="mt-1 text-2xl font-semibold tracking-[-0.02em] tabular">{formatMoney(data.expense)}</p>
-        <div className="mt-2">
-          <Change value={data.expenseChange} invert />
-        </div>
-      </div>
-    </Panel>
   )
 }
 
@@ -246,7 +169,7 @@ function BudgetsSnapshot() {
   const budgets = [...(data?.budgets ?? [])].sort((a, b) => b.percentUsed - a.percentUsed).slice(0, 4)
 
   return (
-    <Panel delay={0.15} className="xl:col-span-2">
+    <Panel delay={0.1} className="xl:col-span-2">
       <PanelTitle
         action={
           <Button variant="link" size="sm" asChild className="px-0">
@@ -353,7 +276,7 @@ function InsightsPanel() {
 function AccountsPanel() {
   const { data, isLoading } = useAccounts()
   return (
-    <Panel delay={0.1} className="xl:col-span-2">
+    <Panel delay={0.15} className="xl:col-span-2">
       <PanelTitle
         action={
           <Button variant="link" size="sm" asChild className="px-0">
@@ -366,15 +289,24 @@ function AccountsPanel() {
       {isLoading ? (
         <div className="grid gap-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
       ) : (
-        <ul className="grid min-w-0 grid-cols-1 gap-3">
-          {(data?.data ?? []).map((a) => (
-            <li key={a.id} className="flex items-center gap-3 text-sm">
-              <AccountIcon type={a.type} color={a.color} className="size-9 [&_svg]:size-4" />
-              <span className="min-w-0 flex-1 truncate font-medium">{a.name}</span>
-              <span className={cn('font-medium tabular', Number(a.balance) < 0 && 'text-expense')}>{formatMoney(a.balance)}</span>
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="-mt-2 mb-4 text-2xl font-semibold tracking-[-0.02em] tabular">{formatMoney(data?.totalBalance ?? 0)}</p>
+          <ul className="grid min-w-0 grid-cols-1 gap-3">
+            {[...(data?.data ?? [])]
+              .sort((a, b) => Math.abs(Number(b.balance)) - Math.abs(Number(a.balance)))
+              .slice(0, 3)
+              .map((a) => (
+                <li key={a.id} className="flex items-center gap-3 text-sm">
+                  <AccountIcon type={a.type} color={a.color} className="size-9 [&_svg]:size-4" />
+                  <span className="min-w-0 flex-1 truncate font-medium">{a.name}</span>
+                  <span className={cn('font-medium tabular', Number(a.balance) < 0 && 'text-expense')}>{formatMoney(a.balance)}</span>
+                </li>
+              ))}
+          </ul>
+          {(data?.data.length ?? 0) > 3 && (
+            <p className="mt-3 text-xs text-muted-foreground">e mais {(data?.data.length ?? 0) - 3} conta(s) em Contas e cartões</p>
+          )}
+        </>
       )}
     </Panel>
   )
@@ -398,11 +330,11 @@ function UpcomingPanel() {
     .slice(0, 6)
 
   return (
-    <Panel delay={0.25} className="xl:col-span-3">
+    <Panel delay={0.15} className="xl:col-span-3">
       <PanelTitle
         action={
           <Button variant="link" size="sm" asChild className="px-0">
-            <Link to="/calendario">Abrir agenda</Link>
+            <Link to="/agenda">Abrir agenda</Link>
           </Button>
         }
       >
@@ -417,19 +349,22 @@ function UpcomingPanel() {
           {items.map((item) => (
             <li key={item.key}>
               {item.kind === 'event' ? (
-                <button type="button" onClick={() => editEvent(item.event)} className="flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/60">
+                <button type="button" onClick={() => editEvent(item.event)} className="flex min-h-11 w-full items-center gap-3 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted/60">
                   <span className="w-1 self-stretch rounded-full" style={{ backgroundColor: item.event.color ?? 'var(--primary)' }} />
                   <span className="w-20 shrink-0 text-xs text-muted-foreground first-letter:uppercase">{relativeDay(item.date, today)}</span>
                   <span className="min-w-0 flex-1 truncate font-medium">{item.event.title}</span>
                   <span className="text-xs text-muted-foreground tabular">{item.event.allDay ? 'dia todo' : formatTime(item.event.startAt)}</span>
                 </button>
               ) : (
-                <div className="flex items-center gap-3 rounded-lg px-2 py-2 text-sm">
-                  <span className={cn('w-1 self-stretch rounded-full', item.bill.type === 'INCOME' ? 'bg-income' : 'bg-expense')} />
+                <Link
+                  to={item.bill.toAccount ? '/investimentos' : '/recorrentes'}
+                  className="flex min-h-11 items-center gap-3 rounded-lg px-2 py-2 text-sm hover:bg-muted/60"
+                >
+                  <span className={cn('w-1 self-stretch rounded-full', item.bill.toAccount ? 'bg-primary' : item.bill.type === 'INCOME' ? 'bg-income' : 'bg-expense')} />
                   <span className="w-20 shrink-0 text-xs text-muted-foreground first-letter:uppercase">{relativeDay(item.date, today)}</span>
                   <span className="min-w-0 flex-1 truncate">{item.bill.description}</span>
-                  <span className={cn('font-medium tabular', item.bill.type === 'INCOME' && 'text-income')}>{formatMoney(item.bill.amount)}</span>
-                </div>
+                  <span className={cn('font-medium tabular', item.bill.type === 'INCOME' && !item.bill.toAccount && 'text-income')}>{formatMoney(item.bill.amount)}</span>
+                </Link>
               )}
             </li>
           ))}
@@ -489,21 +424,23 @@ function GoalsPanel() {
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const today = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6">
-      <h1 className="text-2xl font-semibold tracking-[-0.02em]">
-        {user ? `Olá, ${user.name.split(' ')[0]}` : 'Visão geral'}
-      </h1>
-      <Summary />
+      <div>
+        <h1 className="text-2xl font-semibold tracking-[-0.02em]">{user ? `Olá, ${user.name.split(' ')[0]}` : 'Início'}</h1>
+        <p className="mt-0.5 text-sm text-muted-foreground first-letter:uppercase">{today}</p>
+      </div>
+      <SpendHero />
       <div className="grid min-w-0 gap-5 sm:gap-6 xl:grid-cols-5">
         <InsightsPanel />
+        <BudgetsSnapshot />
+        <UpcomingPanel />
         <AccountsPanel />
         <MonthlyEvolution />
         <SpendingByCategory />
-        <UpcomingPanel />
-        <GoalsPanel />
-        <BudgetsSnapshot />
         <RecentTransactions />
+        <GoalsPanel />
       </div>
     </div>
   )

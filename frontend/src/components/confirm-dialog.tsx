@@ -9,7 +9,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 
-/** Protected confirmation for destructive actions. */
+/** Confirmation for actions that are hard to undo; "positive" ones (joining) are not painted as danger. */
 export function ConfirmDialog({
   open,
   onOpenChange,
@@ -17,6 +17,7 @@ export function ConfirmDialog({
   description,
   confirmLabel,
   onConfirm,
+  tone = 'destructive',
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -24,6 +25,7 @@ export function ConfirmDialog({
   description: string
   confirmLabel: string
   onConfirm: () => void
+  tone?: 'destructive' | 'positive'
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -36,7 +38,7 @@ export function ConfirmDialog({
           <AlertDialogCancel>Cancelar</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className="bg-destructive text-white hover:bg-destructive/90"
+            className={tone === 'destructive' ? 'bg-destructive text-white hover:bg-destructive/90' : undefined}
           >
             {confirmLabel}
           </AlertDialogAction>

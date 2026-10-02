@@ -17,6 +17,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   useDeleteInvestment,
+  useAddValuation,
   useDeleteRecurring,
   useInvestment,
   useInvestmentHistory,
@@ -337,7 +338,7 @@ export function InvestmentsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="size-9"
+                        className="size-11 md:size-9"
                         aria-label={`Remover ${r.description}`}
                         onClick={() =>
                           deleteRule.mutate(r.id, {
@@ -430,6 +431,7 @@ function InvestmentDetailSheet({
   const save = useSaveInvestment()
   const remove = useDeleteInvestment()
   const removeValuation = useRemoveValuation()
+  const addValuation = useAddValuation()
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   const kindLabel = { CONTRIBUTION: 'Aporte', WITHDRAWAL: 'Resgate', INCOME: 'Rendimento recebido', FEE: 'Taxa' } as const
@@ -539,9 +541,24 @@ function InvestmentDetailSheet({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="size-8"
+                      className="size-11 md:size-8"
                       aria-label="Remover valor informado"
-                      onClick={() => removeValuation.mutate({ id: inv.id, valuationId: v.id }, { onError: (e) => toast.error(errorMessage(e)) })}
+                      onClick={() =>
+                        removeValuation.mutate(
+                          { id: inv.id, valuationId: v.id },
+                          {
+                            onError: (e) => toast.error(errorMessage(e)),
+                            onSuccess: () =>
+                              toast.success('Valor removido.', {
+                                action: {
+                                  label: 'Desfazer',
+                                  onClick: () =>
+                                    addValuation.mutate({ id: inv.id, date: v.date, value: Number(v.value) }, { onError: (e) => toast.error(errorMessage(e)) }),
+                                },
+                              }),
+                          },
+                        )
+                      }
                     >
                       <Trash2 className="size-3.5" />
                     </Button>

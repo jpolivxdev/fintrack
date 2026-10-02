@@ -5,7 +5,7 @@ import { useDialogs } from '@/components/dialogs/dialogs-context'
 import { Logo } from '@/components/logo'
 import { MobileNav } from '@/components/mobile-nav'
 import { MonthSwitcher } from '@/components/month-switcher'
-import { isActive, NAV_LIFE, NAV_MONEY, NAV_SETTINGS, type NavItem } from '@/components/navigation'
+import { isActive, NAV_GROUPS, NAV_SETTINGS, type NavItem } from '@/components/navigation'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -80,8 +80,9 @@ export function AppShell() {
           <Logo className="group-data-[collapsible=icon]:[&>span]:hidden" />
         </SidebarHeader>
         <SidebarContent>
-          {navGroup('Dinheiro', NAV_MONEY)}
-          {navGroup(household && household.members.length > 1 ? 'A dois' : 'Agenda', NAV_LIFE)}
+          {NAV_GROUPS.map((group) => (
+            <div key={group.label}>{navGroup(group.label, group.items)}</div>
+          ))}
         </SidebarContent>
         <SidebarFooter>
           <SidebarMenu>
@@ -98,7 +99,7 @@ export function AppShell() {
             <DropdownMenuTrigger asChild>
               <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent">
                 <Avatar className="size-8 rounded-lg">
-                  <AvatarFallback className="rounded-lg bg-primary/15 text-xs font-semibold text-primary">
+                  <AvatarFallback className="rounded-lg bg-primary/15 text-xs font-semibold text-primary-text">
                     {user ? initials(user.name) : '?'}
                   </AvatarFallback>
                 </Avatar>
@@ -131,7 +132,7 @@ export function AppShell() {
               <Button onClick={() => dialogs.newTransaction()} className="rounded-r-none">
                 <Plus className="size-4" />
                 Nova transação
-                <kbd className="ml-1 rounded border border-primary-foreground/30 px-1 text-[10px] font-medium opacity-80">N</kbd>
+                <kbd className="ml-1 rounded bg-primary-foreground/20 px-1.5 text-[11px] font-semibold">N</kbd>
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -164,7 +165,9 @@ export function AppShell() {
             transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
             className="mx-auto w-full min-w-0 max-w-7xl flex-1 px-4 pt-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-8 lg:px-8"
           >
-            <Outlet />
+            <motion.div key={location.pathname} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }} className="min-w-0">
+              <Outlet />
+            </motion.div>
           </motion.div>
         </AnimatePresence>
       </SidebarInset>

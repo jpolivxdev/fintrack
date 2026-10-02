@@ -86,6 +86,10 @@ export interface SummaryReport {
   previousMonth: { income: string; expense: string; net: string }
   incomeChange: number | null
   expenseChange: number | null
+  /** Current month: comparisons cover days 1..N of both months. */
+  comparedThroughDay: number | null
+  /** Current month: what already happened (excludes future installments). */
+  toDate: { income: string; expense: string; net: string } | null
 }
 
 export interface MonthlyPoint {
