@@ -29,6 +29,8 @@ import { AuthResponseDto, UserResponseDto } from './dto/auth-response.dto.js';
 import { LoginDto } from './dto/login.dto.js';
 import { RefreshTokenDto } from './dto/refresh-token.dto.js';
 import { RegisterDto } from './dto/register.dto.js';
+import { AuthCapabilitiesDto, ForgotPasswordDto, MessageDto, ResetPasswordDto } from './dto/password-reset.dto.js';
+import { PasswordResetService } from './password-reset.service.js';
 
 @ApiTags('Auth')
 @ApiTooManyRequestsResponse({
@@ -39,7 +41,41 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly securityLogger: SecurityLogger,
+    private readonly passwordReset: PasswordResetService,
   ) {}
+
+  @Public()
+  @Get('capabilities')
+  @ApiOperation({ summary: 'Which optional account features are available' })
+  @ApiOkResponse({ type: AuthCapabilitiesDto })
+  capabilities(): AuthCapabilitiesDto {
+    return { passwordReset: this.passwordReset.enabled };
+  }
+
+  @Public()
+  @CredentialsThrottle()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  @ApiOperation({
+    summary: 'Send a password reset link',
+    description: 'Always the same answer, whether the e-mail exists or not. The link is valid for 30 minutes and works once.',
+  })
+  @ApiOkResponse({ type: MessageDto })
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<MessageDto> {
+    await this.passwordReset.request(dto.email);
+    return { message: 'If this e-mail is registered, a link is on its way.' };
+  }
+
+  @Public()
+  @CredentialsThrottle()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set a new password with the e-mailed link (signs out every session)' })
+  @ApiOkResponse({ type: MessageDto })
+  async resetPassword(@Body() dto: ResetPasswordDto): Promise<MessageDto> {
+    await this.passwordReset.reset(dto.token, dto.password);
+    return { message: 'Password changed. Log in with the new password.' };
+  }
 
   @Public()
   @CredentialsThrottle()

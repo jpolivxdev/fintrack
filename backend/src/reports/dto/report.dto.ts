@@ -70,14 +70,32 @@ export class SummaryReportDto extends PeriodTotalsDto {
   @ApiProperty({ example: 42 })
   transactionCount: number;
 
-  @ApiProperty({ type: PeriodTotalsDto })
+  @ApiProperty({
+    type: PeriodTotalsDto,
+    description: 'For the current month: the previous month up to the same day (fair comparison); otherwise the whole month',
+  })
   previousMonth: PeriodTotalsDto;
 
-  @ApiProperty({ example: 4.17, nullable: true, type: Number, description: '% change vs previous month' })
+  @ApiProperty({ example: 4.17, nullable: true, type: Number, description: '% change vs previousMonth (null without a base)' })
   incomeChange: number | null;
 
-  @ApiProperty({ example: -12.5, nullable: true, type: Number, description: '% change vs previous month' })
+  @ApiProperty({ example: -12.5, nullable: true, type: Number, description: '% change vs previousMonth (null without a base)' })
   expenseChange: number | null;
+
+  @ApiProperty({
+    example: 2,
+    nullable: true,
+    type: Number,
+    description: 'Current month only: comparisons cover days 1..N of both months. Null = whole months',
+  })
+  comparedThroughDay: number | null;
+
+  @ApiProperty({
+    type: PeriodTotalsDto,
+    nullable: true,
+    description: 'Current month only: what already happened (up to today), excluding future-dated entries such as installments',
+  })
+  toDate: PeriodTotalsDto | null;
 }
 
 export class MonthlyPointDto extends PeriodTotalsDto {

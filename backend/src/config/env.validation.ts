@@ -1,10 +1,12 @@
 import { plainToInstance, Type } from 'class-transformer';
 import {
+  IsEmail,
   IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Max,
   Min,
   MinLength,
@@ -79,6 +81,21 @@ export class EnvironmentVariables {
   @IsInt()
   @Min(0)
   TRUST_PROXY_HOPS = 0;
+
+  /** Public URL of the web app, used in e-mailed links (never taken from the request). */
+  @IsOptional()
+  @IsUrl({ require_tld: false, protocols: ['http', 'https'], require_protocol: true })
+  APP_URL?: string;
+
+  /** Brevo (transactional e-mail) API key. Without it, password reset is off in production. */
+  @IsOptional()
+  @IsString()
+  BREVO_API_KEY?: string;
+
+  /** Verified sender address in Brevo. */
+  @IsOptional()
+  @IsEmail()
+  MAIL_FROM?: string;
 }
 
 export function validateEnv(config: Record<string, unknown>) {

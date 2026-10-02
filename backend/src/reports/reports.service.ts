@@ -45,15 +45,27 @@ export class ReportsService {
     const prev = addMonths(year, month, -1);
     const previous = monthRange(prev.year, prev.month);
 
-    const [thisMonth, lastMonth, allTime, transactionCount, initial] = await Promise.all([
+    // In the current month, compare day 1..today with the same days of the
+    // previous month: a half-finished month against a full one always looks bad.
+    const now = new Date();
+    const isCurrent = now.getUTCFullYear() === year && now.getUTCMonth() + 1 === month;
+    const day = now.getUTCDate();
+    const prevDays = new Date(Date.UTC(prev.year, prev.month, 0)).getUTCDate();
+    const throughDay = isCurrent ? Math.min(day, prevDays) : null;
+    const tomorrow = new Date(Date.UTC(year, month - 1, day + 1));
+    const prevCut = throughDay ? new Date(Date.UTC(prev.year, prev.month - 1, throughDay + 1)) : previous.end;
+
+    const [thisMonth, lastMonth, thisToDate, allTime, transactionCount, initial] = await Promise.all([
       this.totalsByType({ householdId, date: { gte: current.start, lt: current.end } }),
-      this.totalsByType({ householdId, date: { gte: previous.start, lt: previous.end } }),
+      this.totalsByType({ householdId, date: { gte: previous.start, lt: prevCut } }),
+      isCurrent ? this.totalsByType({ householdId, date: { gte: current.start, lt: tomorrow } }) : Promise.resolve(null),
       this.totalsByType({ householdId, date: { lt: current.end } }),
       this.prisma.transaction.count({
         where: { householdId, date: { gte: current.start, lt: current.end } },
       }),
       this.initialBalances(householdId),
     ]);
+    const compared = thisToDate ?? thisMonth;
 
     return {
       year,
@@ -69,8 +81,16 @@ export class ReportsService {
         expense: formatMoney(lastMonth.expense),
         net: formatMoney(lastMonth.income.minus(lastMonth.expense)),
       },
-      incomeChange: percentChange(thisMonth.income, lastMonth.income),
-      expenseChange: percentChange(thisMonth.expense, lastMonth.expense),
+      incomeChange: percentChange(compared.income, lastMonth.income),
+      expenseChange: percentChange(compared.expense, lastMonth.expense),
+      comparedThroughDay: throughDay,
+      toDate: thisToDate
+        ? {
+            income: formatMoney(thisToDate.income),
+            expense: formatMoney(thisToDate.expense),
+            net: formatMoney(thisToDate.income.minus(thisToDate.expense)),
+          }
+        : null,
     };
   }
 

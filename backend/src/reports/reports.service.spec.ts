@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPrismaMock, PrismaMock } from '../../test/utils/prisma-mock.js';
 import { BudgetsService } from '../budgets/budgets.service.js';
 import { Decimal } from '../common/utils/money.js';
@@ -30,6 +30,15 @@ describe('ReportsService', () => {
   });
 
   describe('summary', () => {
+    // A fixed clock: October 2026 is a past month here, December the current one.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(new Date('2026-12-15T12:00:00Z'));
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     it('compares the month with the previous one and computes the balance', async () => {
       prisma.transaction.groupBy
         .mockResolvedValueOnce(totals('6000', '4500')) // this month
@@ -51,6 +60,8 @@ describe('ReportsService', () => {
         previousMonth: { income: '5000.00', expense: '5000.00', net: '0.00' },
         incomeChange: 20,
         expenseChange: -10,
+        comparedThroughDay: null,
+        toDate: null,
       });
 
       const [current, previous, allTime] = prisma.transaction.groupBy.mock.calls.map(
@@ -63,6 +74,29 @@ describe('ReportsService', () => {
       expect(previous.date.gte).toEqual(new Date('2026-09-01T00:00:00Z'));
       expect(allTime.date).toEqual({ lt: new Date('2026-11-01T00:00:00Z') });
       expect([current, previous, allTime].every((w) => w.householdId === USER)).toBe(true);
+    });
+
+    it('in the current month, compares day 1..today of both months', async () => {
+      prisma.transaction.groupBy
+        .mockResolvedValueOnce(totals('6000', '4500')) // whole December (incl. future installments)
+        .mockResolvedValueOnce(totals('5000', '2000')) // November 1..15
+        .mockResolvedValueOnce(totals('5000', '1500')) // December 1..15
+        .mockResolvedValueOnce(totals('30000', '18000')); // all time
+      prisma.transaction.count.mockResolvedValue(10);
+
+      const result = await service.summary(USER, { year: 2026, month: 12 });
+
+      expect(result).toMatchObject({
+        expense: '4500.00',
+        comparedThroughDay: 15,
+        previousMonth: { income: '5000.00', expense: '2000.00' },
+        toDate: { income: '5000.00', expense: '1500.00', net: '3500.00' },
+        incomeChange: 0,
+        expenseChange: -25,
+      });
+      const [, previous, toDate] = prisma.transaction.groupBy.mock.calls.map((call) => call[0].where);
+      expect(previous.date).toEqual({ gte: new Date('2026-11-01T00:00:00Z'), lt: new Date('2026-11-16T00:00:00Z') });
+      expect(toDate.date).toEqual({ gte: new Date('2026-12-01T00:00:00Z'), lt: new Date('2026-12-16T00:00:00Z') });
     });
 
     it('handles a month with no data', async () => {

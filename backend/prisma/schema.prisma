@@ -91,6 +91,7 @@ model User {
   calendarInvites     CalendarInvite[]
   ownedAccounts       Account[]             @relation("AccountOwner")
   ownedCategories     Category[]            @relation("CategoryOwner")
+  passwordResets      PasswordResetToken[]
 
   @@map("users")
 }
@@ -498,4 +499,19 @@ model CalendarInvite {
 
   @@index([createdById])
   @@map("calendar_invites")
+}
+
+/// One-time password reset link (only its SHA-256 is stored).
+model PasswordResetToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
 }

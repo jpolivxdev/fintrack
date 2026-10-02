@@ -7,6 +7,11 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { RecurringService } from '../recurring/recurring.service.js';
 import { buildInsights, type Insight } from './build-insights.js';
 
+function tomorrowUtc(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1));
+}
+
 @Injectable()
 export class InsightsService {
   constructor(
@@ -41,7 +46,8 @@ export class InsightsService {
       }),
       this.budgets.findAllForMonth(householdId, y, m),
       this.prisma.transaction.findFirst({
-        where: { householdId, type: 'EXPENSE', date: { gte: start, lt: end } },
+        // Only what already happened (future installments are not "spent" yet).
+        where: { householdId, type: 'EXPENSE', date: { gte: start, lt: isCurrentMonth ? tomorrowUtc() : end } },
         orderBy: [{ amount: 'desc' }, { date: 'desc' }],
         include: { category: { select: { name: true } } },
       }),

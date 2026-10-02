@@ -5,6 +5,7 @@ import type { Server } from 'node:http';
 import { AppModule } from '../../src/app.module.js';
 import { MARKET_RATES_PROVIDER, type MarketRatesProvider, type RatePoint } from '../../src/investments/market-data.js';
 import { addDays } from '../../src/investments/yield-engine.js';
+import { MAILER, type MailMessage, type Mailer } from '../../src/mail/mailer.js';
 import { PrismaService } from '../../src/prisma/prisma.service.js';
 import { setupApp } from '../../src/setup-app.js';
 
@@ -38,11 +39,22 @@ export const fakeRates: MarketRatesProvider = {
   },
 };
 
+/** Captures e-mails instead of sending them. */
+export const sentMail: MailMessage[] = [];
+const fakeMailer: Mailer = {
+  enabled: true,
+  async send(message) {
+    sentMail.push(message);
+  },
+};
+
 /** Boots the real application (same global setup as production). */
 export async function createTestApp(): Promise<TestContext> {
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(MARKET_RATES_PROVIDER)
     .useValue(fakeRates)
+    .overrideProvider(MAILER)
+    .useValue(fakeMailer)
     .compile();
   const app = moduleRef.createNestApplication<INestApplication<Server>>();
   setupApp(app);
