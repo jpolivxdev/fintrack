@@ -81,6 +81,8 @@ export function setupApp(app: INestApplication): void {
   // The largest legit payload is ~1 KB; anything far beyond that is abuse.
   // Only statement imports (up to 500 rows) get a larger allowance.
   expressApp.use('/api/transactions/import', json({ limit: '512kb' }));
+  // A full household backup can be large (years of entries); only this route accepts it.
+  expressApp.use('/api/backup/restore', json({ limit: '15mb' }));
   expressApp.useBodyParser('json', { limit: '32kb' });
 
   app.setGlobalPrefix('api', { exclude: ['/'] });

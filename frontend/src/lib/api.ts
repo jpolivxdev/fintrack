@@ -141,6 +141,8 @@ api.interceptors.response.use(
 
 // --- Errors in the user's language ------------------------------------------
 const KNOWN_MESSAGES: Array<[RegExp, string]> = [
+  [/Invalid backup/i, "Esse backup está incompleto ou foi alterado. Baixe um novo no FinTrack de origem."],
+  [/demo account cannot restore/i, "A conta demo não pode restaurar backups. Crie sua própria conta."],
   [/Invalid or expired reset link/i, "Esse link expirou ou já foi usado. Peça um novo em Esqueci minha senha."],
   [/This is your own invite code/i, "Esse código é seu. Mande para a outra pessoa digitar."],
   [/already share calendars/i, "Vocês já compartilham a agenda."],

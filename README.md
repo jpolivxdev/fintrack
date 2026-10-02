@@ -16,6 +16,7 @@ Personal finance for one person or a couple: income and expenses across accounts
 - **Import and export**: bank statements in OFX or CSV, parsed in the browser with a preview; re-importing never duplicates. Export goes to Excel-friendly CSV.
 - **Home that answers "how much can I still spend?"**: the month's free money counting what is still to come (salary, bills, installments, scheduled contributions), per day, with a mood that changes when the month gets tight; numbers roll when you register something.
 - **Account recovery**: "forgot my password" with a one-time e-mailed link.
+- **Full backup**: download the whole household as one file and restore it anywhere (e.g. from a local install to the hosted app): accounts, entries with installments, recurring rules, budgets, goals, investments and events.
 - **Mobile-first**: bottom tab bar, bottom-sheet forms, iPhone safe areas, and an installable PWA that never caches financial data.
 
 **Live API docs (Swagger):** https://fintrack-api-qgr2.onrender.com/api/docs  

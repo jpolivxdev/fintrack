@@ -2,6 +2,7 @@ import { Download, LogOut } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { SegmentedControl } from '@/components/segmented-control'
+import { FullBackup } from '@/components/settings/full-backup'
 import { ImportStatement } from '@/components/settings/import-statement'
 import { ImportVida } from '@/components/settings/import-vida'
 import { ShareWithSomeone } from '@/components/settings/share-with-someone'
@@ -46,6 +47,13 @@ export function SettingsPage() {
         description="Divida só a agenda (cada um com suas finanças) ou a agenda e as finanças, com quem você quiser."
       >
         <ShareWithSomeone />
+      </Section>
+
+      <Section
+        title="Backup completo"
+        description="Leve seu FinTrack inteiro para outro lugar (por exemplo, do computador para o site) ou guarde uma cópia de segurança."
+      >
+        <FullBackup />
       </Section>
 
       <Section
