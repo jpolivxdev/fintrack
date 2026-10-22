@@ -113,6 +113,8 @@ export async function seedDemo(prisma: PrismaClient): Promise<string> {
       name: 'Alex Demo',
       email: DEMO_EMAIL,
       passwordHash: await bcrypt.hash(DEMO_PASSWORD, 12),
+      // Fictional data only, so the public demo can show the AI features (still subject to AI_ENABLED).
+      aiEnabled: true,
       membership: { create: { householdId: household.id, role: 'OWNER' } },
     },
   });

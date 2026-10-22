@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { AiModule } from './ai/ai.module.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard.js';
 import { CommonModule } from './common/common.module.js';
@@ -45,6 +46,7 @@ import { TransactionsModule } from './transactions/transactions.module.js';
     InvestmentsModule,
     BackupModule,
     ReportsModule,
+    AiModule,
   ],
   controllers: [RootController, HealthController],
   providers: [
