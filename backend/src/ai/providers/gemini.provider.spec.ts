@@ -19,7 +19,7 @@ vi.mock('@google/genai', async (importOriginal) => {
 
 const { GeminiProvider, classify } = await import('./gemini.provider.js');
 
-const KEY = 'AIzaSyTEST-not-a-real-key-000000000000';
+const KEY = 'fake-gemini-key-for-unit-tests';
 const signal = new AbortController().signal;
 const usageMetadata = { promptTokenCount: 120, candidatesTokenCount: 8 };
 
