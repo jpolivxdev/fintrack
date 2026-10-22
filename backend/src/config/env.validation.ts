@@ -1,5 +1,6 @@
-import { plainToInstance, Type } from 'class-transformer';
+import { plainToInstance, Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEmail,
   IsIn,
   IsInt,
@@ -7,6 +8,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Matches,
   Max,
   Min,
   MinLength,
@@ -96,6 +98,58 @@ export class EnvironmentVariables {
   @IsOptional()
   @IsEmail()
   MAIL_FROM?: string;
+
+  // ---------------- AI (see docs/AI.md) ----------------
+
+  /** Kill switch: false = no call to any AI provider (the app runs on rules). */
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  AI_ENABLED = false;
+
+  /** "fake" (deterministic, no network) or "gemini". */
+  @IsIn(['fake', 'gemini'])
+  AI_PROVIDER: 'fake' | 'gemini' = 'fake';
+
+  /** Gemini API key (Google AI Studio). Backend only; never logged. */
+  @IsOptional()
+  @IsString()
+  GEMINI_API_KEY?: string;
+
+  @IsString()
+  @Matches(/^[\w.-]{1,64}$/)
+  GEMINI_MODEL = 'gemini-3.5-flash-lite';
+
+  /** Per-call timeout. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1000)
+  @Max(30000)
+  AI_TIMEOUT_MS = 10000;
+
+  /**
+   * Internal limits, set below the provider's free-tier limits (which are per
+   * Google project and model, shared by every FinTrack user).
+   */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  AI_GLOBAL_RPM = 10;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  AI_GLOBAL_RPD = 200;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  AI_USER_DAILY_QUOTA = 30;
+
+  /** Requests per minute per user on /ai routes (429 above it). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  AI_USER_RPM = 10;
 }
 
 export function validateEnv(config: Record<string, unknown>) {
@@ -111,6 +165,9 @@ export function validateEnv(config: Record<string, unknown>) {
       )
       .join('\n');
     throw new Error(`Invalid environment variables:\n${details}`);
+  }
+  if (validated.AI_ENABLED && validated.AI_PROVIDER === 'gemini' && !validated.GEMINI_API_KEY) {
+    throw new Error('AI_ENABLED with AI_PROVIDER=gemini requires GEMINI_API_KEY (or set AI_PROVIDER=fake / AI_ENABLED=false)');
   }
   // A leaked refresh secret must not let anyone mint access tokens (and vice versa).
   if (validated.JWT_ACCESS_SECRET === validated.JWT_REFRESH_SECRET) {

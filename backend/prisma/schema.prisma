@@ -73,6 +73,8 @@ model User {
   name         String
   email        String   @unique
   passwordHash String
+  /// Opt-in: AI features send this user's data to a third-party provider only when true.
+  aiEnabled    Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -92,6 +94,7 @@ model User {
   ownedAccounts       Account[]             @relation("AccountOwner")
   ownedCategories     Category[]            @relation("CategoryOwner")
   passwordResets      PasswordResetToken[]
+  aiUsage             AiUsage[]
 
   @@map("users")
 }
@@ -121,18 +124,20 @@ model Household {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members      HouseholdMember[]
-  invites      HouseholdInvite[]
-  categories   Category[]
-  transactions Transaction[]
-  budgets      Budget[]
-  accounts     Account[]
-  transfers    Transfer[]
-  recurring    RecurringRule[]
-  goals        Goal[]
-  events       CalendarEvent[]
-  investments  Investment[]
-  valuations   InvestmentValuation[]
+  members         HouseholdMember[]
+  invites         HouseholdInvite[]
+  categories      Category[]
+  transactions    Transaction[]
+  budgets         Budget[]
+  accounts        Account[]
+  transfers       Transfer[]
+  recurring       RecurringRule[]
+  goals           Goal[]
+  events          CalendarEvent[]
+  investments     Investment[]
+  valuations      InvestmentValuation[]
+  aiCategoryCache AiCategoryCache[]
+  aiSummaries     AiMonthlySummary[]
 
   @@map("households")
 }
@@ -181,10 +186,11 @@ model Category {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
-  household    Household       @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  owner        User?           @relation("CategoryOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  household    Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  owner        User?             @relation("CategoryOwner", fields: [ownerId], references: [id], onDelete: SetNull)
   transactions Transaction[]
   budgets      Budget[]
+  aiCache      AiCategoryCache[]
   recurring    RecurringRule[]
 
   @@unique([householdId, name, type])
@@ -514,4 +520,51 @@ model PasswordResetToken {
 
   @@index([userId])
   @@map("password_reset_tokens")
+}
+
+/// Category suggestions already computed for a household (avoids paying twice for the same text).
+model AiCategoryCache {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  /// SHA-256 of the normalized description + entry type (the text itself is not stored).
+  key         String
+  categoryId  String   @db.Uuid
+  confidence  Float
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category  Category  @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, key])
+  @@map("ai_category_cache")
+}
+
+/// AI calls per user per provider "quota day" (the free tier resets at midnight Pacific time).
+model AiUsage {
+  userId       String   @db.Uuid
+  day          DateTime @db.Date
+  requests     Int      @default(0)
+  inputTokens  Int      @default(0)
+  outputTokens Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
+  @@index([day])
+  @@map("ai_usage")
+}
+
+/// One generated monthly summary per household and month (generated once, then reused).
+model AiMonthlySummary {
+  id          String   @id @default(uuid()) @db.Uuid
+  householdId String   @db.Uuid
+  /// "YYYY-MM"
+  month       String
+  text        String
+  createdAt   DateTime @default(now())
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, month])
+  @@map("ai_monthly_summaries")
 }
