@@ -29,6 +29,7 @@ Controle financeiro pessoal (ou a dois): receitas e despesas em contas e cartõe
 - **Compartilhar com alguém**: um fluxo, dois níveis. "Só agenda" mostra os eventos compartilhados mantendo as finanças separadas; "agenda + finanças" une um lar (cada lançamento mostra quem registrou). Um código recebido mostra o que será compartilhado e por quem antes de aceitar, e sair do grupo leva de volta contas, histórico, metas e eventos.
 - **Importação e exportação**: extratos bancários em OFX ou CSV, processados no navegador com pré-visualização; reimportar nunca duplica. Exportação em CSV compatível com Excel.
 - **Início que responde "quanto ainda posso gastar?"**: o dinheiro livre do mês considerando o que ainda vai entrar e sair (salário, contas, parcelas, aportes agendados), por dia, com um humor visual que muda quando o mês aperta.
+- **IA (opcional)**: sugestão de categoria ao digitar a descrição e "Pergunte ao FinTrack" ("quanto gastei com alimentação este mês?"), respondido com consultas somente leitura ao seu próprio lar e com os números usados ao lado. Desligada por padrão: cada pessoa ativa em Configurações depois de ver o que é enviado. Veja [🤖 IA](#-ia).
 - **Recuperação de conta**: "esqueci minha senha" com link único enviado por e-mail.
 - **Backup completo**: baixe todo o lar (household) em um único arquivo e restaure em qualquer lugar (ex: de uma instalação local para o app hospedado): contas, lançamentos com parcelas, regras recorrentes, orçamentos, metas, investimentos e eventos.
 - **Mobile-first**: barra de navegação inferior, formulários em bottom-sheet, respeito às safe areas do iPhone e um PWA instalável que nunca armazena dados financeiros em cache.
@@ -105,6 +106,25 @@ A segurança foi além do CRUD básico: cada item abaixo tem testes automatizado
 - **Hardening**: Helmet/CSP/HSTS explícitos, allowlist de CORS, variáveis de ambiente validadas na inicialização (segredos fracos ou de exemplo são recusados), erros 500 genéricos com `requestId` (stack trace só nos logs do servidor).
 - **Observabilidade**: logs de segurança estruturados em JSON (logins falhos com e-mail mascarado, 401/403/429, reuso de refresh token) com **agregação por IP**, que reduziu um ataque de 260 mil requisições de ~216 mil linhas de log pra 56.
 - **Supply chain**: `npm audit` de 9 para 0 vulnerabilidades, Dependabot, CodeQL e CI falhando em vulnerabilidades altas/críticas.
+
+## 🤖 IA
+
+Sugestão de categoria e "Pergunte ao FinTrack" usando o **plano gratuito da API do Google Gemini** (`gemini-3.5-flash-lite`), com custo zero. A IA é tratada como componente não confiável:
+
+- **Tool calling fechado:** a IA não gera SQL. Ela escolhe entre 4 consultas somente leitura, escritas por nós, e o backend aplica o lar do usuário logado em todas. Mesmo um modelo manipulado só lê os dados do próprio lar.
+- **Saída validada:** schema JSON no provedor **e** zod estrito no backend. Uma categoria inventada, uma data impossível ou um campo extra são rejeitados.
+- **Opt-in:** no plano gratuito o Google pode usar e revisar o conteúdo enviado, então nada sai sem consentimento. A conta demo (dados fictícios) vem ativada.
+- **Cotas e degradação:** limites por usuário e globais (a cota gratuita é do projeto inteiro), retentativa única, disjuntor e reação a cada tipo de 429. Sem IA, as regras por palavras-chave continuam sugerindo.
+- **Testes sem rede:** 43 testes e2e com um provedor falso que "obedece" injeções, isolamento entre lares, corpus de parâmetros maliciosos, 401/429, chave fora dos logs. O CI nunca chama o Gemini.
+
+Detalhes: **[docs/AI.md](docs/AI.md)** (arquitetura, diagramas, decisões) e **[docs/SECURITY-AI.md](docs/SECURITY-AI.md)** (modelo de ameaças mapeado ao OWASP Top 10 para LLMs).
+
+**Para ativar** (opcional; sem isso o app funciona com regras):
+
+1. Crie uma chave em [Google AI Studio](https://aistudio.google.com/apikey). **Não ative cobrança** no projeto.
+2. Em `backend/.env`: `AI_ENABLED=true`, `AI_PROVIDER=gemini`, `GEMINI_API_KEY=...`. Para desenvolver sem chave, use `AI_PROVIDER=fake` (offline e determinístico).
+3. Ajuste `AI_GLOBAL_RPM`/`AI_GLOBAL_RPD` para 70–80% dos limites que o AI Studio mostra em *View your active rate limits*.
+4. Confira com `npm run ai:smoke` (só local, dados fictícios, 2 requisições).
 
 ## ⚡ Performance
 
