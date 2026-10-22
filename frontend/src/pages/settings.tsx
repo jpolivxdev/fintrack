@@ -2,6 +2,7 @@ import { Download, LogOut } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { SegmentedControl } from '@/components/segmented-control'
+import { AiSettings } from '@/components/settings/ai-settings'
 import { FullBackup } from '@/components/settings/full-backup'
 import { ImportStatement } from '@/components/settings/import-statement'
 import { ImportVida } from '@/components/settings/import-vida'
@@ -47,6 +48,10 @@ export function SettingsPage() {
         description="Divida só a agenda (cada um com suas finanças) ou a agenda e as finanças, com quem você quiser."
       >
         <ShareWithSomeone />
+      </Section>
+
+      <Section title="Inteligência artificial" description="Sugestão de categoria e respostas sobre seus gastos em Pergunte ao FinTrack.">
+        <AiSettings />
       </Section>
 
       <Section

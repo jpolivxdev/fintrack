@@ -5,6 +5,7 @@ import {
   PiggyBank,
   Repeat,
   Settings,
+  Sparkles,
   Tags,
   Target,
   TrendingUp,
@@ -27,6 +28,7 @@ export interface NavGroup {
 export const HOME: NavItem = { to: '/', label: 'Início', icon: Home }
 export const TRANSACTIONS: NavItem = { to: '/transacoes', label: 'Transações', icon: ArrowLeftRight }
 export const AGENDA: NavItem = { to: '/agenda', label: 'Agenda', icon: CalendarDays }
+const ASK: NavItem = { to: '/pergunte', label: 'Pergunte ao FinTrack', icon: Sparkles }
 const BUDGETS: NavItem = { to: '/orcamentos', label: 'Orçamentos', icon: PiggyBank }
 const GOALS: NavItem = { to: '/metas', label: 'Metas', icon: Target }
 const RECURRING: NavItem = { to: '/recorrentes', label: 'Recorrentes', icon: Repeat }
@@ -38,13 +40,13 @@ const PLANNING: NavGroup = { label: 'Planejamento', items: [BUDGETS, GOALS, RECU
 const WEALTH: NavGroup = { label: 'Patrimônio', items: [ACCOUNTS, INVESTMENTS] }
 
 /** Sidebar: three small groups instead of one long list. */
-export const NAV_GROUPS: NavGroup[] = [{ label: 'Dia a dia', items: [HOME, TRANSACTIONS, AGENDA] }, PLANNING, WEALTH]
+export const NAV_GROUPS: NavGroup[] = [{ label: 'Dia a dia', items: [HOME, TRANSACTIONS, AGENDA, ASK] }, PLANNING, WEALTH]
 
 export const NAV_SETTINGS: NavItem = { to: '/configuracoes', label: 'Configurações', icon: Settings }
 
 /** Mobile "Mais" sheet: what the tab bar doesn't show, in the same groups. */
-export const NAV_MORE_GROUPS: NavGroup[] = [PLANNING, WEALTH]
-export const NAV_MORE: NavItem[] = [...PLANNING.items, ...WEALTH.items, NAV_SETTINGS]
+export const NAV_MORE_GROUPS: NavGroup[] = [{ label: 'Dia a dia', items: [ASK] }, PLANNING, WEALTH]
+export const NAV_MORE: NavItem[] = [ASK, ...PLANNING.items, ...WEALTH.items, NAV_SETTINGS]
 
 export function isActive(pathname: string, to: string): boolean {
   return to === '/' ? pathname === '/' : pathname.startsWith(to)

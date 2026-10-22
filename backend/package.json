@@ -20,6 +20,7 @@
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "db:dev": "tsx scripts/dev-db.ts",
+    "ai:smoke": "tsx scripts/ai-smoke.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
@@ -30,6 +31,7 @@
     "load:seed": "tsx load-tests/seed-load.ts"
   },
   "dependencies": {
+    "@google/genai": "2.30.0",
     "@nestjs/common": "^12.0.1",
     "@nestjs/config": "^12.0.1",
     "@nestjs/core": "^12.0.1",
@@ -50,7 +52,8 @@
     "pg": "^8.23.1",
     "prisma": "^7.10.0",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^12.0.0",

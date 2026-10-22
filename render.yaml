@@ -35,3 +35,17 @@ services:
         sync: false # transactional e-mail for "forgot password"; without it the option is hidden
       - key: MAIL_FROM
         sync: false # sender address verified in Brevo
+      - key: AI_ENABLED
+        sync: false # kill switch (true/false), set in the dashboard; true requires GEMINI_API_KEY
+      - key: AI_PROVIDER
+        value: gemini
+      - key: GEMINI_API_KEY
+        sync: false # Google AI Studio key (free tier, no billing), set in the dashboard
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash-lite
+      - key: AI_GLOBAL_RPM
+        sync: false # ~70-80% of the project's free-tier limits (AI Studio > rate limits); app default 10
+      - key: AI_GLOBAL_RPD
+        sync: false # same rule; app default 200
+      - key: AI_USER_DAILY_QUOTA
+        value: '30'

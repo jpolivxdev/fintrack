@@ -19,6 +19,8 @@ const isCredentialsEndpoint = (context: ExecutionContext) =>
  * - `global`: generous limit on every route, so a single client cannot
  *   monopolize the API (answers 429 instead of degrading for everyone).
  * - `credentials`: e.g. 5 attempts / 15 min, only on @CredentialsThrottle routes.
+ * - `ai`: per authenticated user, only enforced by AiThrottlerGuard on the AI
+ *   routes (the global guard runs before authentication, so it always skips).
  */
 export function throttlerOptions(config: ConfigService): ThrottlerModuleOptions {
   return {
@@ -33,6 +35,13 @@ export function throttlerOptions(config: ConfigService): ThrottlerModuleOptions 
         ttl: config.get<number>('THROTTLE_AUTH_TTL_MINUTES', 15) * 60_000,
         limit: config.get<number>('THROTTLE_AUTH_LIMIT', 5),
         skipIf: (context) => !isCredentialsEndpoint(context),
+      },
+      {
+        name: 'ai',
+        ttl: 60_000,
+        limit: config.get<number>('AI_USER_RPM', 10),
+        skipIf: (context) => !context.switchToHttp().getRequest<{ user?: { id: string } }>().user,
+        getTracker: (req: Record<string, any>) => `user:${(req.user as { id: string }).id}`,
       },
     ],
     errorMessage: 'Too many requests, please try again later',

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Controller, useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -8,10 +8,12 @@ import { CategoryIcon } from '@/components/category-icon'
 import { FormField } from '@/components/form-field'
 import { FormActions } from '@/components/responsive-dialog'
 import { SegmentedControl } from '@/components/segmented-control'
+import { CategorySuggestionChip } from '@/components/transactions/category-suggestion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCategories, useSaveTransaction } from '@/hooks/queries'
+import { suggestCategory, type CategorySuggestion } from '@/hooks/queries-ai'
 import { useAccounts } from '@/hooks/queries-more'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { errorMessage } from '@/lib/api'
@@ -84,6 +86,20 @@ export function TransactionForm({
     if (categoryId && !options.some((c) => c.id === categoryId)) setValue('categoryId', '')
   }, [type, categoryId, options, setValue])
 
+  // Category suggestion (keyword rules, cache or AI) when the description is done.
+  const [suggestion, setSuggestion] = useState<CategorySuggestion | null>(null)
+  const lastAsked = useRef('')
+  async function suggestFor(description: string) {
+    const text = description.trim()
+    const key = `${type}:${text.toLowerCase()}`
+    if (editing || text.length < 3 || key === lastAsked.current) return
+    lastAsked.current = key
+    const result = await suggestCategory({ descricao: text, tipo: type, valor: amount ?? undefined })
+    if (lastAsked.current === key) setSuggestion(result)
+  }
+  const suggested = suggestion?.categoriaId ? options.find((c) => c.id === suggestion.categoriaId) : undefined
+  const showSuggestion = suggestion && suggested && suggested.id !== categoryId
+
   // New entries default to the first (oldest) active account.
   useEffect(() => {
     if (!accountId && accounts.length > 0) setValue('accountId', accounts[0].id)
@@ -138,7 +154,7 @@ export function TransactionForm({
             placeholder={type === 'EXPENSE' ? 'Ex.: Supermercado' : 'Ex.: Salário'}
             autoFocus={!isMobile}
             aria-invalid={!!errors.description}
-            {...register('description')}
+            {...register('description', { onBlur: (e) => void suggestFor(e.target.value) })}
           />
         </FormField>
         <FormField id="tx-amount" label={count > 1 ? 'Valor total (R$)' : 'Valor (R$)'} error={errors.amount?.message}>
@@ -147,7 +163,20 @@ export function TransactionForm({
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <FormField id="tx-category" label="Categoria" error={errors.categoryId?.message}>
+        <FormField
+          id="tx-category"
+          label="Categoria"
+          error={errors.categoryId?.message}
+          hint={
+            showSuggestion && (
+              <CategorySuggestionChip
+                suggestion={suggestion}
+                category={suggested}
+                onAccept={() => setValue('categoryId', suggested.id, { shouldValidate: true })}
+              />
+            )
+          }
+        >
           <Controller
             control={control}
             name="categoryId"

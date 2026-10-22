@@ -27,6 +27,13 @@ export default defineConfig({
       THROTTLE_AUTH_TTL_MINUTES: '15',
       TRUST_PROXY_HOPS: '1',
       CORS_ORIGINS: 'http://localhost:5173',
+      // AI on, with the deterministic fake provider: no key, no network.
+      AI_ENABLED: 'true',
+      AI_PROVIDER: 'fake',
+      AI_USER_DAILY_QUOTA: '30',
+      AI_USER_RPM: '20',
+      AI_GLOBAL_RPM: '1000',
+      AI_GLOBAL_RPD: '5000',
     },
   },
 });

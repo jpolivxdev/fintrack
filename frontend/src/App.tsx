@@ -18,6 +18,7 @@ const CalendarPage = lazy(() => import('@/pages/calendar').then((m) => ({ defaul
 const GoalsPage = lazy(() => import('@/pages/goals').then((m) => ({ default: m.GoalsPage })))
 const InvestmentsPage = lazy(() => import('@/pages/investments').then((m) => ({ default: m.InvestmentsPage })))
 const RecurringPage = lazy(() => import('@/pages/recurring').then((m) => ({ default: m.RecurringPage })))
+const AskPage = lazy(() => import('@/pages/ask').then((m) => ({ default: m.AskPage })))
 const SettingsPage = lazy(() => import('@/pages/settings').then((m) => ({ default: m.SettingsPage })))
 const TransactionsPage = lazy(() => import('@/pages/transactions').then((m) => ({ default: m.TransactionsPage })))
 
@@ -77,6 +78,7 @@ export default function App() {
           <Route path="recorrentes" element={<RecurringPage />} />
           <Route path="agenda" element={<CalendarPage />} />
           <Route path="calendario" element={<Navigate to="/agenda" replace />} />
+          <Route path="pergunte" element={<AskPage />} />
           <Route path="configuracoes" element={<SettingsPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
